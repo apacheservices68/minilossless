@@ -1,0 +1,12 @@
+# Bỏ qua thư mục môi trường ảo Python
+venv/
+.venv/
+env/
+
+# Bỏ qua bộ nhớ tạm Python (nếu cần)
+__pycache__/
+*.pyc
+
+# Bỏ qua git
+.git/
+*.tflite
