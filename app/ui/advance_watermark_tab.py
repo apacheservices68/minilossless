@@ -6,7 +6,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit,
     QSlider, QCheckBox, QSpinBox, QListWidget, QListWidgetItem, QGroupBox,
     QFormLayout, QMessageBox, QProgressBar, QFileDialog,
-    QGraphicsView, QGraphicsScene, QGraphicsTextItem, QGraphicsItem
+    QGraphicsView, QGraphicsScene, QGraphicsTextItem, QGraphicsItem,
+    QComboBox
 )
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QThread, QPointF, QSizeF
 from PyQt6.QtGui import QFont, QPen, QBrush, QColor, QPainter, QPainterPath, QFontDatabase
@@ -104,7 +105,7 @@ class AIProcessWorker(QThread):
     progress = pyqtSignal(int, str)
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, input_path, output_path, texts, use_cuda, face_blur, face_blur_pct, bg_blur, bg_blur_strength):
+    def __init__(self, input_path, output_path, texts, use_cuda, face_blur, face_blur_pct, face_blur_type, face_blur_image_path, bg_blur, bg_blur_strength, face_blur_style="Gaussian", face_blur_strength=15):
         super().__init__()
         self.input_path = input_path
         self.output_path = output_path
@@ -112,8 +113,12 @@ class AIProcessWorker(QThread):
         self.use_cuda = use_cuda
         self.face_blur = face_blur
         self.face_blur_pct = face_blur_pct
+        self.face_blur_type = face_blur_type
+        self.face_blur_image_path = face_blur_image_path
         self.bg_blur = bg_blur
         self.bg_blur_strength = bg_blur_strength
+        self.face_blur_style = face_blur_style
+        self.face_blur_strength = face_blur_strength
 
     def run(self):
         signals = AIProcessorSignals()
@@ -127,6 +132,10 @@ class AIProcessWorker(QThread):
                 use_cuda=self.use_cuda,
                 face_blur_enabled=self.face_blur,
                 face_blur_pct=self.face_blur_pct,
+                face_blur_type=self.face_blur_type,
+                face_blur_image_path=self.face_blur_image_path,
+                face_blur_style=self.face_blur_style,
+                face_blur_strength=self.face_blur_strength,
                 bg_blur_enabled=self.bg_blur,
                 bg_blur_strength=self.bg_blur_strength,
                 signals=signals
@@ -202,6 +211,14 @@ class AdvanceWatermarkTab(QWidget):
         self.btn_play_pause = QPushButton("Play")
         self.btn_play_pause.clicked.connect(self.toggle_play_pause)
         media_controls.addWidget(self.btn_play_pause)
+        
+        # Trợ giúp trực quan để đóng video
+        self.btn_help_close = QPushButton("?")
+        self.btn_help_close.setFixedWidth(28)
+        self.btn_help_close.setToolTip("Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại.")
+        self.btn_help_close.clicked.connect(lambda: QMessageBox.information(self, "Trợ giúp", "Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại."))
+        media_controls.addWidget(self.btn_help_close)
+        
         player_layout.addLayout(media_controls)
         
         player_group.setLayout(player_layout)
@@ -264,11 +281,39 @@ class AdvanceWatermarkTab(QWidget):
         ai_layout = QFormLayout()
         
         self.chk_cuda = QCheckBox("Enable CUDA Hardware Acceleration")
+        
         self.chk_face_blur = QCheckBox("Face Blur (Blur mặt)")
         self.spin_face_blur_pct = QSpinBox()
         self.spin_face_blur_pct.setRange(0, 100)
         self.spin_face_blur_pct.setValue(0)
         self.spin_face_blur_pct.setSuffix(" % top portion")
+        
+        self.cb_face_blur_type = QComboBox()
+        self.cb_face_blur_type.addItem("Square (Hình vuông)", "Square")
+        self.cb_face_blur_type.addItem("Circle/Ellipse (Hình elip)", "Ellipse")
+        self.cb_face_blur_type.addItem("Replace with Image (Thay thế bằng ảnh)", "Image")
+        self.cb_face_blur_type.currentIndexChanged.connect(self.on_face_blur_type_changed)
+        
+        self.cb_face_blur_style = QComboBox()
+        self.cb_face_blur_style.addItem("Gaussian (Làm mờ mịn)", "Gaussian")
+        self.cb_face_blur_style.addItem("Pixelate (Mô-sắc/Pixel)", "Pixel")
+        self.cb_face_blur_style.addItem("Box Blur (Làm mờ hộp)", "Box")
+        self.cb_face_blur_style.addItem("Blackout (Màu đặc)", "Blackout")
+        
+        self.spin_face_blur_strength = QSpinBox()
+        self.spin_face_blur_strength.setRange(1, 100)
+        self.spin_face_blur_strength.setValue(15)
+        
+        self.widget_face_image = QWidget()
+        face_img_layout = QHBoxLayout(self.widget_face_image)
+        face_img_layout.setContentsMargins(0, 0, 0, 0)
+        self.txt_face_image_path = QLineEdit()
+        self.txt_face_image_path.setPlaceholderText("Select replacement image...")
+        self.btn_face_image_browse = QPushButton("Browse...")
+        self.btn_face_image_browse.clicked.connect(self.browse_face_replacement_image)
+        face_img_layout.addWidget(self.txt_face_image_path, 1)
+        face_img_layout.addWidget(self.btn_face_image_browse)
+        self.widget_face_image.setVisible(False)
         
         self.chk_bg_blur = QCheckBox("Background Blur (Xóa phông)")
         self.spin_bg_strength = QSpinBox()
@@ -279,6 +324,10 @@ class AdvanceWatermarkTab(QWidget):
         
         ai_layout.addRow(self.chk_cuda)
         ai_layout.addRow(self.chk_face_blur, self.spin_face_blur_pct)
+        ai_layout.addRow("Shape/Replace Type:", self.cb_face_blur_type)
+        ai_layout.addRow("Blur Style:", self.cb_face_blur_style)
+        ai_layout.addRow("Blur Strength / Pixel Size:", self.spin_face_blur_strength)
+        ai_layout.addRow("Replacement Image:", self.widget_face_image)
         ai_layout.addRow(self.chk_bg_blur, self.spin_bg_strength)
         ai_group.setLayout(ai_layout)
         right_layout.addWidget(ai_group)
@@ -304,6 +353,42 @@ class AdvanceWatermarkTab(QWidget):
         right_layout.addWidget(process_group)
 
         self.scene.selectionChanged.connect(self.on_scene_selection_changed)
+
+    def on_face_blur_type_changed(self):
+        is_image = (self.cb_face_blur_type.currentData() == "Image")
+        self.widget_face_image.setVisible(is_image)
+
+    def browse_face_replacement_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Replacement Image", "", "Image Files (*.png *.jpg *.jpeg);;All Files (*)"
+        )
+        if file_path:
+            self.txt_face_image_path.setText(file_path)
+
+    def reset_tab(self):
+        self.selected_video_path = ""
+        self.player.setSource(QUrl())
+        self.slider_timeline.setRange(0, 0)
+        self.slider_timeline.setValue(0)
+        self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
+        self.btn_play_pause.setText("Play")
+        
+        # Clear text items
+        for item in self.text_items:
+            try:
+                self.scene.removeItem(item)
+            except Exception:
+                pass
+        self.text_items.clear()
+        self.list_overlays.clear()
+        self.selected_item = None
+        
+        # Reset scene/video item sizes
+        self.video_w, self.video_h = 1280, 720
+        self.scene.setSceneRect(0, 0, 1280, 720)
+        self.video_item.setPos(0, 0)
+        self.video_item.setSize(QSizeF(1280.0, 720.0))
+        self.fit_video_in_view()
 
     def fit_video_in_view(self):
         """Dùng fitInView native của PyQt để giữ nguyên 100% Aspect Ratio & Resolution"""
@@ -500,7 +585,12 @@ class AdvanceWatermarkTab(QWidget):
         msg_box.setText("Are you sure you want to export the video with selected configurations?")
         
         cuda_status = "Enabled" if self.chk_cuda.isChecked() else "Disabled"
-        fblur_status = f"Enabled (top {self.spin_face_blur_pct.value()}% of face)" if self.chk_face_blur.isChecked() else "Disabled"
+        face_type_str = self.cb_face_blur_type.currentText()
+        if self.cb_face_blur_type.currentData() == "Image":
+            face_type_str += f" ({os.path.basename(self.txt_face_image_path.text())})"
+        face_style_str = self.cb_face_blur_style.currentText()
+        face_strength = self.spin_face_blur_strength.value()
+        fblur_status = f"Enabled ({face_type_str}, style {face_style_str}, strength {face_strength}, top {self.spin_face_blur_pct.value()}% of face)" if self.chk_face_blur.isChecked() else "Disabled"
         bblur_status = f"Enabled (kernel {self.spin_bg_strength.value()}px)" if self.chk_bg_blur.isChecked() else "Disabled"
         
         details = f"""
@@ -534,6 +624,10 @@ Resolution: {video_w}x{video_h}
             use_cuda=self.chk_cuda.isChecked(),
             face_blur=self.chk_face_blur.isChecked(),
             face_blur_pct=float(self.spin_face_blur_pct.value()),
+            face_blur_type=self.cb_face_blur_type.currentData(),
+            face_blur_image_path=self.txt_face_image_path.text() if self.cb_face_blur_type.currentData() == "Image" else None,
+            face_blur_style=self.cb_face_blur_style.currentData(),
+            face_blur_strength=self.spin_face_blur_strength.value(),
             bg_blur=self.chk_bg_blur.isChecked(),
             bg_blur_strength=self.spin_bg_strength.value()
         )

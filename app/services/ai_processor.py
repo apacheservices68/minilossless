@@ -130,6 +130,10 @@ def process_video_ai(
     use_cuda: bool = False,
     face_blur_enabled: bool = False,
     face_blur_pct: float = 0.0,
+    face_blur_type: str = "Square",
+    face_blur_image_path: str = None,
+    face_blur_style: str = "Gaussian",
+    face_blur_strength: int = 15,
     bg_blur_enabled: bool = False,
     bg_blur_strength: int = 101,
     signals: AIProcessorSignals = None,
@@ -292,10 +296,25 @@ def process_video_ai(
                 
                 for detection in detection_result.detections:
                     bbox = detection.bounding_box
-                    xmin = max(0, int(bbox.origin_x))
-                    ymin = max(0, int(bbox.origin_y))
-                    w = min(width - xmin, int(bbox.width))
-                    h = min(height - ymin, int(bbox.height))
+                    
+                    ow = int(bbox.width)
+                    oh = int(bbox.height)
+                    
+                    # Tinh toan dich chuyen va mo rong de khac phuc lech tam va ho vung tran
+                    # Dich len tren 20% chieu cao (giup che vung tran/toc)
+                    shift_up = int(oh * 0.20)
+                    # Dich sang trai 5% chieu rong de can xunh lai tam (khac phuc lech phai nhe)
+                    shift_left = int(ow * 0.05)
+                    
+                    # Chieu cao tang 25% de bo tron phan tran/toc phia tren va cam phia duoi
+                    h_adjusted = int(oh * 1.25)
+                    # Chieu rong tang 10% de che phu het ma/tai
+                    w_adjusted = int(ow * 1.10)
+                    
+                    xmin = max(0, int(bbox.origin_x) - shift_left)
+                    ymin = max(0, int(bbox.origin_y) - shift_up)
+                    w = min(width - xmin, w_adjusted)
+                    h = min(height - ymin, h_adjusted)
                     
                     if w > 0 and h > 0:
                         if face_blur_pct <= 0.0:
@@ -308,9 +327,68 @@ def process_video_ai(
                         
                         if blur_h > 0 and w > 0:
                             face_roi = processed_frame[ymin:ymin + blur_h, xmin:xmin + w]
-                            face_ksize = max(5, int(w * 0.5) | 1)
-                            blurred_roi = cv2.GaussianBlur(face_roi, (face_ksize, face_ksize), 0)
-                            processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blurred_roi
+                            
+                            # Xác định blurred_roi dựa trên face_blur_style và face_blur_strength
+                            style = face_blur_style.lower() if isinstance(face_blur_style, str) else "gaussian"
+                            strength = max(1, int(face_blur_strength))
+                            
+                            if style == "pixel":
+                                # Pixelate
+                                small_w = max(1, w // strength)
+                                small_h = max(1, blur_h // strength)
+                                temp = cv2.resize(face_roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+                                blurred_roi = cv2.resize(temp, (w, blur_h), interpolation=cv2.INTER_NEAREST)
+                            elif style == "box":
+                                # Box Blur
+                                face_ksize = strength
+                                if face_ksize % 2 == 0:
+                                    face_ksize += 1
+                                face_ksize = max(1, face_ksize)
+                                blurred_roi = cv2.blur(face_roi, (face_ksize, face_ksize))
+                            elif style == "blackout":
+                                # Blackout
+                                blurred_roi = np.zeros_like(face_roi)
+                            else:  # Gaussian
+                                face_ksize = strength
+                                if face_ksize % 2 == 0:
+                                    face_ksize += 1
+                                face_ksize = max(1, face_ksize)
+                                blurred_roi = cv2.GaussianBlur(face_roi, (face_ksize, face_ksize), 0)
+                            
+                            if face_blur_type == "Ellipse":
+                                # Vẽ mặt nạ elip mềm mại ôm sát khuôn mặt
+                                mask = np.zeros((blur_h, w), dtype=np.uint8)
+                                center = (w // 2, blur_h // 2)
+                                axes = (w // 2, blur_h // 2)
+                                cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+                                
+                                # Tạo viền mờ mềm mại cho mặt nạ
+                                mask_ksize = max(5, int(min(w, blur_h) * 0.20) | 1)
+                                mask_blurred = cv2.GaussianBlur(mask, (mask_ksize, mask_ksize), 0) / 255.0
+                                mask_3d = np.atleast_3d(mask_blurred)
+                                
+                                blended_roi = (blurred_roi * mask_3d + face_roi * (1.0 - mask_3d)).astype(np.uint8)
+                                processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blended_roi
+                                
+                            elif face_blur_type == "Image" and face_blur_image_path and os.path.exists(face_blur_image_path):
+                                replacement_img = cv2.imread(face_blur_image_path, cv2.IMREAD_UNCHANGED)
+                                if replacement_img is not None:
+                                    resized_replacement = cv2.resize(replacement_img, (w, blur_h))
+                                    if resized_replacement.shape[2] == 4:
+                                        alpha_channel = resized_replacement[:, :, 3] / 255.0
+                                        alpha_mask = np.atleast_3d(alpha_channel)
+                                        rgb_replacement = resized_replacement[:, :, :3]
+                                        
+                                        blended = (rgb_replacement * alpha_mask + face_roi * (1.0 - alpha_mask)).astype(np.uint8)
+                                        processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blended
+                                    else:
+                                        processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = resized_replacement
+                                else:
+                                    # Fallback
+                                    processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blurred_roi
+                            else:
+                                # Square blur (Default)
+                                processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blurred_roi
                             
             try:
                 process.stdin.write(processed_frame.tobytes())

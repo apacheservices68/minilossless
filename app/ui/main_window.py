@@ -93,11 +93,17 @@ class BasicCutTab(QWidget):
         self.btn_next_seg = QPushButton("Next Segment >")
         self.btn_next_seg.clicked.connect(self.jump_to_next_segment)
 
+        self.btn_help_close = QPushButton("?")
+        self.btn_help_close.setFixedWidth(28)
+        self.btn_help_close.setToolTip("Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại.")
+        self.btn_help_close.clicked.connect(lambda: QMessageBox.information(self, "Trợ giúp", "Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại."))
+
         controls_layout.addWidget(self.btn_play_pause)
         controls_layout.addWidget(self.btn_set_start)
         controls_layout.addWidget(self.btn_set_end)
         controls_layout.addWidget(self.btn_prev_seg)
         controls_layout.addWidget(self.btn_next_seg)
+        controls_layout.addWidget(self.btn_help_close)
         player_layout.addLayout(controls_layout)
         player_group.setLayout(player_layout)
         left_layout.addWidget(player_group)
@@ -209,6 +215,18 @@ class BasicCutTab(QWidget):
         self.segments = []
         self.update_segments_table()
         self.load_project_file(file_path)
+
+    def reset_tab(self):
+        self.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
+        self.player.setSource(QUrl())
+        self.slider_timeline.setRange(0, 0)
+        self.slider_timeline.setValue(0)
+        self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
+        self.btn_play_pause.setText("Play")
+        self.segments = []
+        self.update_segments_table()
+        self.txt_manual_start.clear()
+        self.txt_manual_end.clear()
 
     def toggle_play_pause(self):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -553,11 +571,24 @@ class MainWindow(QMainWindow):
         self.basic_tab.set_video_path(video_path)
         self.advance_tab.set_video_path(video_path)
 
+    def close_video(self):
+        self.selected_video_path = ""
+        self.log("Closing active video and resetting state.")
+        self.basic_tab.reset_tab()
+        self.advance_tab.reset_tab()
+
     def log(self, message: str):
         self.log_output.append(message)
 
     # Global keyboard listener for hotkeys
     def keyPressEvent(self, event):
+        # Check Ctrl+W or Cmd+W to close video globally
+        is_ctrl_w = (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() == Qt.Key.Key_W
+        is_cmd_w = (event.modifiers() & Qt.KeyboardModifier.MetaModifier) and event.key() == Qt.Key.Key_W
+        if is_ctrl_w or is_cmd_w:
+            self.close_video()
+            return
+
         # Only route hotkeys to Basic Cut tab if it is the currently active tab
         if self.tabs.currentWidget() == self.basic_tab:
             if event.key() == Qt.Key.Key_BracketLeft:
