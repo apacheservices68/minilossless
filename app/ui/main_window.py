@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QPushButton, QLabel, QLineEdit, QComboBox, QFileDialog,
     QTextEdit, QMessageBox, QGroupBox, QFormLayout, QSlider,
-    QTableWidget, QTableWidgetItem, QAbstractItemView
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QCheckBox
 )
 from PyQt6.QtCore import Qt, QUrl, QSizeF
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
@@ -13,12 +13,17 @@ from PyQt6.QtMultimediaWidgets import QVideoWidget, QGraphicsVideoItem
 
 import app.services.ffmpeg_service as ffmpeg_service
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
+from app.ui.utils import (
+    toggle_play_pause, get_formatted_time_str,
+    handle_player_position_changed, handle_player_duration_changed,
+    show_close_video_help
+)
 
 class BasicCutTab(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.segments = []  # List of dict: {"start": float, "end": float}
+        self.segments = []  # List of dict: {\"start\": float, \"end\": float}
         self.selected_segment_index = -1
         self.is_slider_moving = False
         self.init_ui()
@@ -96,7 +101,7 @@ class BasicCutTab(QWidget):
         self.btn_help_close = QPushButton("?")
         self.btn_help_close.setFixedWidth(28)
         self.btn_help_close.setToolTip("Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại.")
-        self.btn_help_close.clicked.connect(lambda: QMessageBox.information(self, "Trợ giúp", "Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại."))
+        self.btn_help_close.clicked.connect(lambda: show_close_video_help(self))
 
         controls_layout.addWidget(self.btn_play_pause)
         controls_layout.addWidget(self.btn_set_start)
@@ -159,8 +164,23 @@ class BasicCutTab(QWidget):
         self.btn_export = QPushButton("⚡ Export Segments (Lossless)")
         self.btn_export.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 13px; padding: 6px;")
         self.btn_export.clicked.connect(self.export_segments_action)
+
+        self.cb_export_mode = QComboBox()
+        self.cb_export_mode.addItem("Separate files", "separate")
+        self.cb_export_mode.addItem("Merge & Separate", "merge")
+        self.cb_export_mode.currentIndexChanged.connect(self.on_export_mode_changed)
+
         export_layout.addWidget(self.btn_export)
+        export_layout.addWidget(self.cb_export_mode)
         segments_layout.addLayout(export_layout)
+
+        # -- Cleanup Option --
+        cleanup_layout = QHBoxLayout()
+        self.chk_cleanup = QCheckBox("Delete separate files after merging")
+        self.chk_cleanup.setChecked(True)
+        self.chk_cleanup.setEnabled(False)
+        cleanup_layout.addWidget(self.chk_cleanup)
+        segments_layout.addLayout(cleanup_layout)
 
         segments_group.setLayout(segments_layout)
         right_layout.addWidget(segments_group)
@@ -231,28 +251,17 @@ class BasicCutTab(QWidget):
         self.txt_manual_end.clear()
 
     def toggle_play_pause(self):
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
-            self.player.pause()
-            self.btn_play_pause.setText("Play")
-        else:
-            self.player.play()
-            self.btn_play_pause.setText("Pause")
+        toggle_play_pause(self.player, self.btn_play_pause)
 
     def on_player_position_changed(self, position):
-        if not self.is_slider_moving:
-            self.slider_timeline.setValue(position)
-        self.update_time_label()
+        handle_player_position_changed(self.slider_timeline, self.is_slider_moving, position, self.update_time_label)
 
     def on_player_duration_changed(self, duration):
-        self.slider_timeline.setRange(0, duration)
-        self.update_time_label()
+        handle_player_duration_changed(self.slider_timeline, duration, self.update_time_label)
 
     def update_time_label(self):
-        pos_sec = self.player.position() / 1000.0
-        dur_sec = self.player.duration() / 1000.0
-        pos_str = ffmpeg_service.format_seconds_to_time(pos_sec)
-        dur_str = ffmpeg_service.format_seconds_to_time(dur_sec)
-        self.lbl_time.setText(f"{pos_str} / {dur_str}")
+        time_str = get_formatted_time_str(self.player.position(), self.player.duration())
+        self.lbl_time.setText(time_str)
 
     def on_slider_pressed(self):
         self.is_slider_moving = True
@@ -435,6 +444,10 @@ class BasicCutTab(QWidget):
         except Exception as e:
             self.log(f"Failed to load project file: {str(e)}")
 
+    def on_export_mode_changed(self, index):
+        mode = self.cb_export_mode.currentData()
+        self.chk_cleanup.setEnabled(mode == "merge")
+
     def export_segments_action(self):
         if not self.main_window.selected_video_path:
             QMessageBox.warning(self, "Warning", "Please select an input video first!")
@@ -445,17 +458,23 @@ class BasicCutTab(QWidget):
             return
 
         dest_dir = QFileDialog.getExistingDirectory(
-            self, "Select Directory to Save Exported Segments", os.path.dirname(self.main_window.selected_video_path)
+            self, "Select Directory to Save Exported Files", os.path.dirname(self.main_window.selected_video_path)
         )
         if not dest_dir:
             return
 
-        self.log(f"Starting export of {len(self.segments)} segments...")
+        export_mode = self.cb_export_mode.currentData()
+        do_cleanup = self.chk_cleanup.isChecked() and export_mode == 'merge'
+
+        self.log(f"Starting export with mode: {export_mode}")
         
         video_name = os.path.basename(self.main_window.selected_video_path)
         base_name, ext = os.path.splitext(video_name)
         
+        exported_files = []
         success_count = 0
+        has_error = False
+
         for i, seg in enumerate(self.segments):
             start_str = ffmpeg_service.format_seconds_to_time(seg["start"], include_ms=False)
             end_str = ffmpeg_service.format_seconds_to_time(seg["end"], include_ms=False)
@@ -471,14 +490,50 @@ class BasicCutTab(QWidget):
             try:
                 ffmpeg_service.cut_video(self.main_window.selected_video_path, output_path, start_str, end_str)
                 success_count += 1
+                exported_files.append(output_path)
                 self.log(f"Exported: {output_filename}")
             except Exception as e:
+                has_error = True
                 self.log(f"Error exporting Segment {i+1}: {str(e)}")
+
+        if has_error:
+            QMessageBox.warning(self, "Export Error", f"Exported {success_count}/{len(self.segments)} segments. Check logs for details.")
+            # Don't proceed to merge if there were errors
+            return
+
+        # If merge mode is selected, perform the merge
+        if export_mode == 'merge':
+            merged_filename = f"{base_name}_merged{ext}"
+            merged_output_path = os.path.join(dest_dir, merged_filename)
+            
+            self.log(f"Merging {len(exported_files)} files into {merged_filename}...")
+            try:
+                ffmpeg_service.merge_videos(exported_files, merged_output_path)
+                self.log(f"Successfully merged files into {merged_filename}")
+
+                # Cleanup intermediate files if requested
+                if do_cleanup:
+                    self.log("Cleaning up intermediate segment files...")
+                    cleaned_count = 0
+                    for f_path in exported_files:
+                        try:
+                            os.remove(f_path)
+                            cleaned_count += 1
+                        except OSError as e:
+                            self.log(f"Error deleting file {f_path}: {e}")
+                    self.log(f"Cleaned up {cleaned_count} files.")
                 
-        if success_count == len(self.segments):
-            QMessageBox.information(self, "Export Finished", f"Successfully exported all {success_count} segments!")
+                QMessageBox.information(self, "Export & Merge Finished", f"Successfully exported {success_count} segments and merged them into {merged_filename}")
+
+            except Exception as e:
+                self.log(f"Error merging files: {str(e)}")
+                QMessageBox.critical(self, "Merge Error", f"Failed to merge files. Your separate segment files are still available.\nError: {str(e)}")
         else:
-            QMessageBox.warning(self, "Export Finished with issues", f"Exported {success_count}/{len(self.segments)} segments. Check logs.")
+            # Just show the standard export success message
+            if success_count == len(self.segments):
+                QMessageBox.information(self, "Export Finished", f"Successfully exported all {success_count} segments!")
+            else:
+                QMessageBox.warning(self, "Export Finished with issues", f"Exported {success_count}/{len(self.segments)} segments. Check logs.")
 
     def watermark_video_action(self):
         if not self.main_window.selected_video_path:

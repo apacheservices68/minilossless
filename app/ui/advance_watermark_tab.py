@@ -16,6 +16,11 @@ from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
 
 from app.services.ai_processor import AIProcessorSignals
 from app.services.ffmpeg_service import process_video_ai
+from app.ui.utils import (
+    toggle_play_pause, get_formatted_time_str,
+    handle_player_position_changed, handle_player_duration_changed,
+    show_close_video_help
+)
 
 
 class ResizableGraphicsView(QGraphicsView):
@@ -217,7 +222,7 @@ class AdvanceWatermarkTab(QWidget):
         self.btn_help_close = QPushButton("?")
         self.btn_help_close.setFixedWidth(28)
         self.btn_help_close.setToolTip("Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại.")
-        self.btn_help_close.clicked.connect(lambda: QMessageBox.information(self, "Trợ giúp", "Nhấn Ctrl + W (Windows/Linux) hoặc Cmd + W (macOS) để đóng video hiện tại."))
+        self.btn_help_close.clicked.connect(lambda: show_close_video_help(self))
         media_controls.addWidget(self.btn_help_close)
         
         player_layout.addLayout(media_controls)
@@ -446,29 +451,17 @@ class AdvanceWatermarkTab(QWidget):
         self.set_video_path_only(path)
 
     def toggle_play_pause(self):
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
-            self.player.pause()
-            self.btn_play_pause.setText("Play")
-        else:
-            self.player.play()
-            self.btn_play_pause.setText("Pause")
+        toggle_play_pause(self.player, self.btn_play_pause)
 
     def on_player_position_changed(self, position):
-        if not self.is_slider_moving:
-            self.slider_timeline.setValue(position)
-        self.update_time_label()
+        handle_player_position_changed(self.slider_timeline, self.is_slider_moving, position, self.update_time_label)
 
     def on_player_duration_changed(self, duration):
-        self.slider_timeline.setRange(0, duration)
-        self.update_time_label()
+        handle_player_duration_changed(self.slider_timeline, duration, self.update_time_label)
 
     def update_time_label(self):
-        from app.services.ffmpeg_service import format_seconds_to_time
-        pos_sec = self.player.position() / 1000.0
-        dur_sec = self.player.duration() / 1000.0
-        pos_str = format_seconds_to_time(pos_sec)
-        dur_str = format_seconds_to_time(dur_sec)
-        self.lbl_time.setText(f"{pos_str} / {dur_str}")
+        time_str = get_formatted_time_str(self.player.position(), self.player.duration())
+        self.lbl_time.setText(time_str)
 
     def on_slider_pressed(self):
         self.is_slider_moving = True
