@@ -23,9 +23,9 @@ def test_get_face_detector_exists_cpu_delegate(mocker):
     mocker.patch("os.path.exists", return_value=True)
     
     # Mock python BaseOptions and vision.FaceDetector.create_from_options
-    mock_base_options_cls = mocker.patch("mediapipe.tasks.python.BaseOptions")
-    mock_face_detector_options_cls = mocker.patch("mediapipe.tasks.python.vision.FaceDetectorOptions")
-    mock_create_from_options = mocker.patch("mediapipe.tasks.python.vision.FaceDetector.create_from_options")
+    mock_base_options_cls = mocker.patch("app.ai.detectors.python.BaseOptions")
+    mock_face_detector_options_cls = mocker.patch("app.ai.detectors.vision.FaceDetectorOptions")
+    mock_create_from_options = mocker.patch("app.ai.detectors.vision.FaceDetector.create_from_options")
     
     detector = get_face_detector()
     
@@ -55,9 +55,9 @@ def test_get_selfie_segmenter_exists_cpu_delegate(mocker):
     mocker.patch("os.path.exists", return_value=True)
     
     # Mock base options, options, and create_from_options
-    mock_base_options_cls = mocker.patch("mediapipe.tasks.python.BaseOptions")
-    mock_segmenter_options_cls = mocker.patch("mediapipe.tasks.python.vision.ImageSegmenterOptions")
-    mock_create_from_options = mocker.patch("mediapipe.tasks.python.vision.ImageSegmenter.create_from_options")
+    mock_base_options_cls = mocker.patch("app.ai.detectors.python.BaseOptions")
+    mock_segmenter_options_cls = mocker.patch("app.ai.detectors.vision.ImageSegmenterOptions")
+    mock_create_from_options = mocker.patch("app.ai.detectors.vision.ImageSegmenter.create_from_options")
     
     segmenter = get_selfie_segmenter()
     

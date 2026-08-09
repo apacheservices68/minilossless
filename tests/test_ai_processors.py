@@ -14,12 +14,9 @@ from app.ai.processors import (
 @pytest.fixture
 def dummy_frame():
     """
-    Returns a dummy BGR frame representing a 1080p video frame.
+    Returns a dummy BGR frame representing a 1080p video frame with high contrast.
     """
-    frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
-    # Fill with structured pattern to check blurring/pixelation effects
-    cv2.rectangle(frame, (100, 100), (400, 400), (255, 255, 255), -1)
-    return frame
+    return np.random.randint(0, 256, (1080, 1920, 3), dtype=np.uint8)
 
 def test_apply_pixelate(dummy_frame):
     """
