@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import (
     QTextEdit, QMessageBox, QGroupBox, QFormLayout, QSlider,
     QTableWidget, QTableWidgetItem, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl, QSizeF
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtMultimediaWidgets import QVideoWidget
+from PyQt6.QtMultimediaWidgets import QVideoWidget, QGraphicsVideoItem
 
 import app.services.ffmpeg_service as ffmpeg_service
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
@@ -209,12 +209,14 @@ class BasicCutTab(QWidget):
         if file_path:
             self.main_window.set_active_video(file_path)
 
-    def set_video_path(self, file_path):
+    def set_video_path_only(self, file_path):
         self.lbl_video_path.setText(f"Selected: {os.path.basename(file_path)}\nFull Path: {file_path}")
         self.player.setSource(QUrl.fromLocalFile(file_path))
         self.segments = []
-        self.update_segments_table()
-        self.load_project_file(file_path)
+        self.update_segments_table_without_save()
+
+    def set_video_path(self, file_path):
+        self.set_video_path_only(file_path)
 
     def reset_tab(self):
         self.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
@@ -224,7 +226,7 @@ class BasicCutTab(QWidget):
         self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
         self.btn_play_pause.setText("Play")
         self.segments = []
-        self.update_segments_table()
+        self.update_segments_table_without_save()
         self.txt_manual_start.clear()
         self.txt_manual_end.clear()
 
@@ -272,7 +274,7 @@ class BasicCutTab(QWidget):
         time_str = ffmpeg_service.format_seconds_to_time(pos_sec)
         self.txt_manual_end.setText(time_str)
 
-    def update_segments_table(self):
+    def update_segments_table_without_save(self):
         self.table_segments.setRowCount(0)
         for i, seg in enumerate(self.segments):
             self.table_segments.insertRow(i)
@@ -286,8 +288,13 @@ class BasicCutTab(QWidget):
             self.table_segments.setItem(i, 1, QTableWidgetItem(start_str))
             self.table_segments.setItem(i, 2, QTableWidgetItem(end_str))
             self.table_segments.setItem(i, 3, QTableWidgetItem(dur_str))
-        
-        self.save_project_file()
+
+    def update_segments_table(self):
+        self.update_segments_table_without_save()
+        if hasattr(self.main_window, "save_project_state"):
+            self.main_window.save_project_state()
+        else:
+            self.save_project_file()
 
     def on_segment_selection_changed(self):
         selected_ranges = self.table_segments.selectedRanges()
@@ -566,16 +573,35 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(log_group)
 
     def set_active_video(self, video_path):
-        self.selected_video_path = video_path
-        self.log(f"Loaded active video: {video_path}")
-        self.basic_tab.set_video_path(video_path)
-        self.advance_tab.set_video_path(video_path)
+        json_path = os.path.splitext(video_path)[0] + ".json"
+        if os.path.exists(json_path):
+            self.selected_video_path = video_path
+            self.log(f"Loaded active video: {video_path}")
+            self.basic_tab.set_video_path_only(video_path)
+            self.advance_tab.set_video_path_only(video_path)
+            self.load_project_state(video_path)
+        else:
+            self.log(f"No .json file found for {video_path}. Calling reset_workspace() and loading video.")
+            self.reset_workspace()
+            self.selected_video_path = video_path
+            self.basic_tab.set_video_path_only(video_path)
+            self.advance_tab.set_video_path_only(video_path)
 
     def close_video(self):
-        self.selected_video_path = ""
-        self.log("Closing active video and resetting state.")
-        self.basic_tab.reset_tab()
-        self.advance_tab.reset_tab()
+        self.reset_workspace()
+
+    def reset_workspace(self):
+        from app.core.config_manager import reset_workspace
+        reset_workspace(self)
+        self.log("Workspace reset. Closing player and clearing state.")
+
+    def save_project_state(self):
+        from app.core.config_manager import save_project_state
+        save_project_state(self)
+
+    def load_project_state(self, video_path):
+        from app.core.config_manager import load_project_state
+        load_project_state(self, video_path)
 
     def log(self, message: str):
         self.log_output.append(message)

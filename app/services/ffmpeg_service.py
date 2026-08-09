@@ -1,6 +1,14 @@
 import subprocess
 import os
 import tempfile
+import cv2
+import numpy as np
+from app.core.ffmpeg_config import (
+    get_ffmpeg_cut_cmd,
+    get_ffmpeg_merge_cmd,
+    get_ffmpeg_watermark_cmd,
+    get_ffmpeg_pipe_cmd
+)
 
 def parse_time_to_seconds(t_str: str) -> float:
     """
@@ -53,17 +61,7 @@ def cut_video(input_path: str, output_path: str, start_time: str, end_time: str)
     start_time, end_time can be in HH:MM:SS or SS format.
     """
     try:
-        cmd = [
-            "ffmpeg",
-            "-ss", start_time,
-            "-to", end_time,
-            "-i", input_path,
-            "-c", "copy",
-            "-avoid_negative_ts", "make_zero",
-            "-y",
-            output_path
-        ]
-        
+        cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -85,16 +83,7 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
                 escaped_path = path.replace("'", "'\\''")
                 f.write(f"file '{escaped_path}'\n")
         
-        cmd = [
-            "ffmpeg",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", temp_list,
-            "-c", "copy",
-            "-y",
-            output_path
-        ]
-        
+        cmd = get_ffmpeg_merge_cmd(temp_list, output_path)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -177,20 +166,7 @@ def watermark_video(input_path: str, output_path: str, text: str, position: str)
         
         coords = pos_map.get(position, "x=10:y=10")
         
-        cmd = [
-            "ffmpeg",
-            "-i", input_path,
-            "-i", temp_watermark,
-            "-filter_complex", f"[0:v][1:v]overlay={coords}[outv]",
-            "-map", "[outv]",
-            "-map", "0:a?",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "22",
-            "-y",
-            output_path
-        ]
-        
+        cmd = get_ffmpeg_watermark_cmd(input_path, output_path, temp_watermark, coords)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -202,3 +178,173 @@ def watermark_video(input_path: str, output_path: str, text: str, position: str)
                 os.remove(temp_watermark)
             except Exception as e:
                 print(f"Failed to remove temporary watermark file: {e}")
+
+def process_video_ai(
+    input_video_path: str = None,
+    output_video_path: str = None,
+    texts: list = None,
+    use_cuda: bool = False,
+    face_blur_enabled: bool = False,
+    face_blur_pct: float = 0.0,
+    face_blur_type: str = "Square",
+    face_blur_image_path: str = None,
+    face_blur_style: str = "Gaussian",
+    face_blur_strength: int = 15,
+    bg_blur_enabled: bool = False,
+    bg_blur_strength: int = 101,
+    signals = None,
+    preview_width=0, 
+    preview_height=0,
+    progress_callback = None,
+    *args,    
+    **kwargs
+):
+    """
+    Run the AI process pipeline using Subprocess Popen to push processed frames into FFmpeg.
+    """
+    input_video_path = input_video_path or kwargs.get('input_path')
+    output_video_path = output_video_path or kwargs.get('output_path')
+    texts = texts if texts is not None else []
+    
+    def emit_progress(pct, msg):
+        if signals:
+            try:
+                signals.progress.emit(pct, msg)
+            except Exception:
+                pass
+        if progress_callback:
+            try:
+                progress_callback(pct, msg)
+            except TypeError:
+                try:
+                    progress_callback(pct)
+                except Exception:
+                    pass
+
+    from app.core.constants import BASE_DIR
+    temp_watermark_path = os.path.join(BASE_DIR, "temp_wm.png")
+    
+    detector = None
+    segmenter = None
+    
+    if face_blur_enabled:
+        from app.ai.detectors import get_face_detector
+        detector = get_face_detector()
+            
+    if bg_blur_enabled:
+        from app.ai.detectors import get_selfie_segmenter
+        segmenter = get_selfie_segmenter()
+
+    from app.ai.pipeline import AIPipeline
+    pipeline = AIPipeline(detector=detector, segmenter=segmenter)
+
+    cap = cv2.VideoCapture(input_video_path)
+    if not cap.isOpened():
+        raise Exception(f"Cannot open input video: {input_video_path}")
+        
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    width = width if width % 2 == 0 else width - 1
+    height = height if height % 2 == 0 else height - 1
+
+    if fps <= 0 or np.isnan(fps):
+        fps = 30.0
+    if total_frames <= 0:
+        total_frames = 1
+        
+    process = None
+    try:
+        if texts:
+            from app.services.ai_processor import create_advanced_watermark_image
+            create_advanced_watermark_image(
+                width, height, texts, temp_watermark_path, 
+                preview_width=preview_width, 
+                preview_height=preview_height
+            )
+        
+        ffmpeg_cmd = get_ffmpeg_pipe_cmd(
+            width=width,
+            height=height,
+            fps=fps,
+            temp_watermark_path=temp_watermark_path,
+            input_video_path=input_video_path,
+            use_cuda=use_cuda,
+            output_video_path=output_video_path
+        )
+        
+        process = subprocess.Popen(
+            ffmpeg_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        frame_idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+                
+            if frame.shape[1] != width or frame.shape[0] != height:
+                frame = cv2.resize(frame, (width, height))
+
+            processed_frame = pipeline.process_frame(
+                frame=frame,
+                face_blur_enabled=face_blur_enabled,
+                face_blur_pct=face_blur_pct,
+                face_blur_type=face_blur_type,
+                face_blur_image_path=face_blur_image_path,
+                face_blur_style=face_blur_style,
+                face_blur_strength=face_blur_strength,
+                bg_blur_enabled=bg_blur_enabled,
+                bg_blur_strength=bg_blur_strength
+            )
+            
+            try:
+                process.stdin.write(processed_frame.tobytes())
+            except Exception:
+                break
+                
+            frame_idx += 1
+            pct = int((frame_idx / total_frames) * 100)
+            emit_progress(pct, f"Rendering CUDA Frame {frame_idx}/{total_frames} ({pct}%)")
+                
+    except Exception as e:
+        err_msg = str(e)
+        if "flush of closed file" not in err_msg and signals:
+            try:
+                signals.finished.emit(False, err_msg)
+            except Exception:
+                pass
+    finally:
+        cap.release()
+        
+        if process:
+            if process.stdin:
+                try:
+                    process.stdin.close()
+                except Exception:
+                    pass
+                process.stdin = None
+            
+            try:
+                stdout_d, stderr_d = process.communicate()
+            except Exception:
+                pass
+                
+        emit_progress(100, "Done!")
+
+        if signals:
+            try:
+                signals.finished.emit(True, "Processing completed successfully!")
+            except Exception:
+                pass
+
+        if os.path.exists(temp_watermark_path):
+            try:
+                os.remove(temp_watermark_path)
+            except Exception:
+                pass

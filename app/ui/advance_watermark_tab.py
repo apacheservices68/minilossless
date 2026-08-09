@@ -14,7 +14,8 @@ from PyQt6.QtGui import QFont, QPen, QBrush, QColor, QPainter, QPainterPath, QFo
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
 
-from app.services.ai_processor import process_video_ai, AIProcessorSignals
+from app.services.ai_processor import AIProcessorSignals
+from app.services.ffmpeg_service import process_video_ai
 
 
 class ResizableGraphicsView(QGraphicsView):
@@ -332,6 +333,16 @@ class AdvanceWatermarkTab(QWidget):
         ai_group.setLayout(ai_layout)
         right_layout.addWidget(ai_group)
         
+        # Connect automatic saving on value change
+        self.chk_cuda.stateChanged.connect(self.trigger_auto_save)
+        self.chk_face_blur.stateChanged.connect(self.trigger_auto_save)
+        self.spin_face_blur_pct.valueChanged.connect(self.trigger_auto_save)
+        self.cb_face_blur_type.currentIndexChanged.connect(self.trigger_auto_save)
+        self.cb_face_blur_style.currentIndexChanged.connect(self.trigger_auto_save)
+        self.spin_face_blur_strength.valueChanged.connect(self.trigger_auto_save)
+        self.chk_bg_blur.stateChanged.connect(self.trigger_auto_save)
+        self.spin_bg_strength.valueChanged.connect(self.trigger_auto_save)
+        
         process_group = QGroupBox("Export & Process Pipeline")
         process_layout = QVBoxLayout()
         
@@ -358,12 +369,18 @@ class AdvanceWatermarkTab(QWidget):
         is_image = (self.cb_face_blur_type.currentData() == "Image")
         self.widget_face_image.setVisible(is_image)
 
+    def trigger_auto_save(self):
+        main_win = self.window()
+        if hasattr(main_win, "save_project_state"):
+            main_win.save_project_state()
+
     def browse_face_replacement_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Replacement Image", "", "Image Files (*.png *.jpg *.jpeg);;All Files (*)"
         )
         if file_path:
             self.txt_face_image_path.setText(file_path)
+            self.trigger_auto_save()
 
     def reset_tab(self):
         self.selected_video_path = ""
@@ -395,7 +412,7 @@ class AdvanceWatermarkTab(QWidget):
         if hasattr(self, 'video_w') and self.video_w > 0:
             self.view.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    def set_video_path(self, path):
+    def set_video_path_only(self, path):
         self.selected_video_path = path
         self.player.setSource(QUrl.fromLocalFile(path))
         
@@ -414,13 +431,19 @@ class AdvanceWatermarkTab(QWidget):
         self.video_item.setSize(QSizeF(float(self.video_w), float(self.video_h)))
         
         for item in self.text_items:
-            self.scene.removeItem(item)
+            try:
+                self.scene.removeItem(item)
+            except Exception:
+                pass
         self.text_items.clear()
         self.list_overlays.clear()
         self.selected_item = None
         
         # 3. Fit khung hiển thị Viewport
         self.fit_video_in_view()
+
+    def set_video_path(self, path):
+        self.set_video_path_only(path)
 
     def toggle_play_pause(self):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -474,6 +497,10 @@ class AdvanceWatermarkTab(QWidget):
         self.list_overlays.setCurrentRow(len(self.text_items) - 1)
         item.setSelected(True)
         self.log_message.emit(f"Added text overlay: '{text_val}'")
+        
+        main_win = self.window()
+        if hasattr(main_win, "save_project_state"):
+            main_win.save_project_state()
 
     def delete_selected_text(self):
         if not self.selected_item:
@@ -487,6 +514,10 @@ class AdvanceWatermarkTab(QWidget):
         self.scene.removeItem(self.selected_item)
         self.selected_item = None
         self.log_message.emit("Deleted selected text overlay.")
+        
+        main_win = self.window()
+        if hasattr(main_win, "save_project_state"):
+            main_win.save_project_state()
 
     def on_scene_selection_changed(self):
         selected = self.scene.selectedItems()
@@ -532,6 +563,10 @@ class AdvanceWatermarkTab(QWidget):
             
             idx = self.text_items.index(self.selected_item)
             self.list_overlays.item(idx).setText(text)
+            
+            main_win = self.window()
+            if hasattr(main_win, "save_project_state"):
+                main_win.save_project_state()
 
     def start_ai_processing(self):
         if not self.selected_video_path:
