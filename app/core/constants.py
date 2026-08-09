@@ -8,8 +8,8 @@ BASE_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 AI_IMAGE_SIZE = 320
 
 # Default path for models
-FACE_MODEL_PATH = os.path.join(BASE_DIR, "face_detector.tflite")
-SELFIE_MODEL_PATH = os.path.join(BASE_DIR, "selfie_segmenter.tflite")
+FACE_MODEL_PATH = os.path.join(BASE_DIR, "assets", "models", "face_detector.tflite")
+SELFIE_MODEL_PATH = os.path.join(BASE_DIR, "assets", "models", "selfie_segmenter.tflite")
 
 # Font paths
 DEFAULT_FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", "DejaVuSans-Bold.ttf")

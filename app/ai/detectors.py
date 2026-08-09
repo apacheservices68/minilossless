@@ -10,10 +10,9 @@ def get_face_detector():
     """
     Initialize and return MediaPipe FaceDetector using CPU delegate.
     """
-    model_p = FACE_MODEL_PATH if os.path.exists(FACE_MODEL_PATH) else "face_detector.tflite"
-    if os.path.exists(model_p):
+    if os.path.exists(FACE_MODEL_PATH):
         base_options = python.BaseOptions(
-            model_asset_path=model_p,
+            model_asset_path=FACE_MODEL_PATH,
             delegate=python.BaseOptions.Delegate.CPU
         )
         options = vision.FaceDetectorOptions(base_options=base_options)
@@ -24,10 +23,9 @@ def get_selfie_segmenter():
     """
     Initialize and return MediaPipe ImageSegmenter (Selfie) using CPU delegate.
     """
-    model_p = SELFIE_MODEL_PATH if os.path.exists(SELFIE_MODEL_PATH) else "selfie_segmenter.tflite"
-    if os.path.exists(model_p):
+    if os.path.exists(SELFIE_MODEL_PATH):
         base_options = python.BaseOptions(
-            model_asset_path=model_p,
+            model_asset_path=SELFIE_MODEL_PATH,
             delegate=python.BaseOptions.Delegate.CPU
         )
         options = vision.ImageSegmenterOptions(
