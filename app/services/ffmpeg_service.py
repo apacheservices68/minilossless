@@ -3,12 +3,30 @@ import os
 import tempfile
 import cv2
 import numpy as np
+import json
+import ffmpeg
 from app.core.ffmpeg_config import (
     get_ffmpeg_cut_cmd,
     get_ffmpeg_merge_cmd,
     get_ffmpeg_watermark_cmd,
-    get_ffmpeg_pipe_cmd
+    get_ffmpeg_pipe_cmd,
+    get_ffmpeg_exact_cut_cmd,
+    get_ffmpeg_snapshot_cmd,
+    get_ffmpeg_export_cmd
 )
+
+def get_video_info(input_path: str) -> dict:
+    """Run ffprobe to get video info."""
+    cmd = [
+        "ffprobe", "-v", "quiet", "-print_format", "json",
+        "-show_format", "-show_streams", input_path
+    ]
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        return json.loads(result.stdout)
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"Error getting video info: {e}")
+        return {}
 
 def parse_time_to_seconds(t_str: str) -> float:
     """
@@ -55,13 +73,16 @@ def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
     else:
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-def cut_video(input_path: str, output_path: str, start_time: str, end_time: str) -> bool:
+def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, exact: bool = False) -> bool:
     """
-    Cut video from start_time to end_time without re-encoding.
-    start_time, end_time can be in HH:MM:SS or SS format.
+    Cut video from start_time to end_time.
+    If exact=True, uses re-encoding for frame accuracy.
     """
     try:
-        cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
+        if exact:
+            cmd = get_ffmpeg_exact_cut_cmd(input_path, output_path, start_time, end_time)
+        else:
+            cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -80,8 +101,8 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as f:
             temp_list = f.name
             for path in video_paths:
-                escaped_path = path.replace("'", "'\\''")
-                f.write(f"file '{escaped_path}'\n")
+                escaped_path = path.replace("\"", "\"\\\"\"")
+                f.write(f"file ‘{escaped_path}’\n")
         
         cmd = get_ffmpeg_merge_cmd(temp_list, output_path)
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -202,8 +223,8 @@ def process_video_ai(
     """
     Run the AI process pipeline using Subprocess Popen to push processed frames into FFmpeg.
     """
-    input_video_path = input_video_path or kwargs.get('input_path')
-    output_video_path = output_video_path or kwargs.get('output_path')
+    input_video_path = input_video_path or kwargs.get("input_path")
+    output_video_path = output_video_path or kwargs.get("output_path")
     texts = texts if texts is not None else []
     
     def emit_progress(pct, msg):
@@ -348,3 +369,47 @@ def process_video_ai(
                 os.remove(temp_watermark_path)
             except Exception:
                 pass
+
+def get_video_fps(input_path: str) -> float:
+    """
+    Get the FPS of a video file.
+    """
+    try:
+        probe = ffmpeg.probe(input_path)
+        video_stream = next((stream for stream in probe["streams"] if stream["codec_type"] == "video"), None)
+        if video_stream and "avg_frame_rate" in video_stream:
+            num, den = map(int, video_stream["avg_frame_rate"].split("/"))
+            if den > 0:
+                return num / den
+    except Exception as e:
+        print(f"Error getting video FPS with ffprobe: {e}")
+    return 0.0
+
+def take_snapshot(input_path: str, output_path: str, time: str, quality: int, format: str) -> bool:
+    """
+    Take a snapshot of a video at a specific time.
+    """
+    try:
+        # FFmpeg quality for JPG is inverted (2-31, lower is better)
+        # We map 1-100 (UI) to 31-2 (ffmpeg)
+        if format.lower() == 'jpg':
+            q_value = int(31 - (quality / 100.0) * 29)
+        else:
+            q_value = 0 # Not used for PNG
+
+        cmd = get_ffmpeg_snapshot_cmd(input_path, output_path, time, q_value, format)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error taking snapshot: {e.stderr}")
+        raise Exception(e.stderr)
+
+def export_video(input_path: str, output_path: str, options: dict) -> bool:
+    """Export video with various options (FPS, tracks, metadata)."""
+    try:
+        cmd = get_ffmpeg_export_cmd(input_path, output_path, options)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error in export_video: {e.stderr}")
+        raise Exception(e.stderr)

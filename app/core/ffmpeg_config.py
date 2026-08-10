@@ -115,3 +115,77 @@ def get_ffmpeg_pipe_cmd(
         
     cmd.append(output_video_path)
     return cmd
+
+def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str) -> list[str]:
+    """Build command for a precise, re-encoded cut."""
+    return [
+        "ffmpeg",
+        "-i", input_path,
+        "-ss", start_time,
+        "-to", end_time,
+        "-c:v", FFMPEG_CONFIGS["CPU_CODEC"], # Re-encode for accuracy
+        "-preset", FFMPEG_CONFIGS["CPU_PRESET"],
+        "-crf", FFMPEG_CONFIGS["CPU_CRF"],
+        "-c:a", "aac", # Re-encode audio
+        "-b:a", "192k",
+        "-y",
+        output_path
+    ]
+
+def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, quality: int, format: str) -> list[str]:
+    """Build command to take a single snapshot."""
+    cmd = [
+        "ffmpeg",
+        "-ss", time,
+        "-i", input_path,
+        "-frames:v", "1",
+    ]
+    if format.lower() == 'jpg':
+        cmd.extend(["-q:v", str(quality)]) # Quality for JPG (1-31, lower is better)
+    cmd.append(output_path)
+    return cmd
+
+def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> list[str]:
+    """Build command for exporting with various options (FPS, tracks, metadata)."""
+    cmd = ["ffmpeg", "-i", input_path]
+
+    # Video and Audio filters
+    video_filters = []
+    if options.get("fps"):
+        video_filters.append(f"fps={options['fps']}")
+
+    if video_filters:
+        cmd.extend(["-filter:v", ",".join(video_filters)])
+
+    # Track handling
+    if options.get('remove_audio'):
+        cmd.append("-an")
+    elif options.get('keep_audio', True):
+        cmd.extend(["-map", "0:a?"])
+
+    if options.get('remove_video'):
+        cmd.append("-vn")
+    elif options.get('keep_video', True):
+        cmd.extend(["-map", "0:v?"])
+
+    # Codec selection
+    if not video_filters and not options.get('remove_audio') and not options.get('remove_video'):
+        cmd.extend(["-c", "copy"]) # Default to stream copy if no filters/track removal
+    else:
+        cmd.extend(["-c:v", FFMPEG_CONFIGS["CPU_CODEC"], "-preset", FFMPEG_CONFIGS["CPU_PRESET"], "-crf", FFMPEG_CONFIGS["CPU_CRF"]])
+        if not options.get('remove_audio'):
+            cmd.extend(["-c:a", "aac", "-b:a", "192k"]) # Re-encode audio if video is re-encoded
+
+    # Metadata
+    if options.get('metadata'):
+        cmd.extend(["-map_metadata", "-1"]) # Clear existing metadata
+        for meta in options['metadata'].split('\n'):
+            if '=' in meta:
+                key, value = meta.split('=', 1)
+                cmd.extend(["-metadata", f"{key.strip()}={value.strip()}"])
+    else:
+        cmd.extend(["-map_metadata", "0"]) # Keep original metadata
+
+    cmd.extend(["-y", output_path])
+    return cmd
+

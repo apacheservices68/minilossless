@@ -43,8 +43,11 @@ class TestExportModes(unittest.TestCase):
         # Khởi tạo BasicCutTab, truyền main_window đã mock vào
         with patch(f'{MAIN_WINDOW_UI_PATH}.BasicCutTab.init_ui', MagicMock()):
             self.basic_tab = BasicCutTab(self.main_window)
-            self.basic_tab.cb_export_mode = MagicMock()
-            self.basic_tab.chk_cleanup = MagicMock()
+            self.basic_tab.segments_widget = MagicMock()
+            self.basic_tab.segments_widget.cb_export_mode = MagicMock()
+            self.basic_tab.segments_widget.chk_cleanup = MagicMock()
+            self.basic_tab.track_control_widget = MagicMock()
+            self.basic_tab.track_control_widget.is_audio_discarded = False
 
     def tearDown(self):
         """Chạy sau mỗi test case để dọn dẹp."""
@@ -61,8 +64,8 @@ class TestExportModes(unittest.TestCase):
             {'start': 10.5, 'end': 20.0},
             {'start': 30.0, 'end': 40.2}
         ]
-        self.basic_tab.cb_export_mode.currentData.return_value = 'separate'
-        self.basic_tab.chk_cleanup.isChecked.return_value = False
+        self.basic_tab.segments_widget.cb_export_mode.currentData.return_value = 'separate'
+        self.basic_tab.segments_widget.chk_cleanup.isChecked.return_value = False
 
         # --- Thực thi --- #
         self.basic_tab.export_segments_action()
@@ -70,10 +73,34 @@ class TestExportModes(unittest.TestCase):
         # --- Khẳng định --- #
         self.assertEqual(mock_cut_video.call_count, 2)
         expected_calls = [
-            call('/fake/video.mp4', os.path.join(self.mock_output_dir, 'video_00-00-10_00-00-20.mp4'), '00:00:10', '00:00:20'),
-            call('/fake/video.mp4', os.path.join(self.mock_output_dir, 'video_00-00-30_00-00-40.mp4'), '00:00:30', '00:00:40')
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-10_00-00-20.mp4"), "00:00:10", "00:00:20", audio_codec="copy"),
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-30_00-00-40.mp4"), "00:00:30", "00:00:40", audio_codec="copy"),
         ]
         mock_cut_video.assert_has_calls(expected_calls, any_order=True)
+
+    @patch(f'{FFMPEG_SERVICE_PATH}.cut_video')
+    @patch(f'{FFMPEG_SERVICE_PATH}.merge_videos')
+    @patch(f'{OS_PATH}.remove')
+    def test_export_with_discard_audio(self, mock_os_remove, mock_merge_videos, mock_cut_video):
+        """Kiểm tra export với tùy chọn Discard Audio."""
+        # --- Setup --- #
+        self.basic_tab.segments = [
+            {'start': 1.0, 'end': 2.0},
+        ]
+        self.basic_tab.segments_widget.cb_export_mode.currentData.return_value = 'separate'
+        self.basic_tab.track_control_widget.is_audio_discarded = True
+
+        # --- Thực thi --- #
+        self.basic_tab.export_segments_action()
+
+        # --- Khẳng định --- #
+        mock_cut_video.assert_called_once_with(
+            '/fake/video.mp4',
+            os.path.join(self.mock_output_dir, 'video_00-00-01_00-00-02.mp4'),
+            '00:00:01',
+            '00:00:02',
+            audio_codec=None
+        )
 
         mock_merge_videos.assert_not_called()
         mock_os_remove.assert_not_called()
@@ -88,8 +115,8 @@ class TestExportModes(unittest.TestCase):
         self.basic_tab.segments = [
             {'start': 5.0, 'end': 8.0}
         ]
-        self.basic_tab.cb_export_mode.currentData.return_value = 'merge'
-        self.basic_tab.chk_cleanup.isChecked.return_value = False
+        self.basic_tab.segments_widget.cb_export_mode.currentData.return_value = 'merge'
+        self.basic_tab.segments_widget.chk_cleanup.isChecked.return_value = False
 
         mock_cut_video.return_value = None
 
@@ -102,6 +129,7 @@ class TestExportModes(unittest.TestCase):
         exported_file = os.path.join(self.mock_output_dir, 'video_00-00-05_00-00-08.mp4')
         merged_file = os.path.join(self.mock_output_dir, 'video_merged.mp4')
 
+        mock_cut_video.assert_called_with("/fake/video.mp4", exported_file, "00:00:05", "00:00:08", audio_codec="copy")
         mock_merge_videos.assert_called_once_with([exported_file], merged_file)
         mock_os_remove.assert_not_called()
         self.main_window.log.assert_any_call("Starting export with mode: merge")
@@ -117,8 +145,8 @@ class TestExportModes(unittest.TestCase):
             {'start': 1.0, 'end': 2.0},
             {'start': 3.0, 'end': 4.0}
         ]
-        self.basic_tab.cb_export_mode.currentData.return_value = 'merge'
-        self.basic_tab.chk_cleanup.isChecked.return_value = True
+        self.basic_tab.segments_widget.cb_export_mode.currentData.return_value = 'merge'
+        self.basic_tab.segments_widget.chk_cleanup.isChecked.return_value = True
 
         mock_cut_video.return_value = None
 
@@ -133,6 +161,10 @@ class TestExportModes(unittest.TestCase):
         merged_file = os.path.join(self.mock_output_dir, 'video_merged.mp4')
 
         mock_merge_videos.assert_called_once_with([exported_file1, exported_file2], merged_file)
+        mock_cut_video.assert_has_calls([
+            call("/fake/video.mp4", exported_file1, "00:00:01", "00:00:02", audio_codec="copy"),
+            call("/fake/video.mp4", exported_file2, "00:00:03", "00:00:04", audio_codec="copy"),
+        ], any_order=True)
         
         self.assertEqual(mock_os_remove.call_count, 2)
         mock_os_remove.assert_has_calls([call(exported_file1), call(exported_file2)], any_order=True)

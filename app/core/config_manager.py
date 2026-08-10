@@ -70,6 +70,13 @@ def reset_workspace(main_window):
     # Hide replacement image widget
     main_window.advance_tab.widget_face_image.setVisible(False)
 
+    # 3. Reset SnapshotTab
+    if hasattr(main_window, 'snapshot_tab'):
+        main_window.snapshot_tab.reset_tab()
+
+    # 4. Reset MetadataTab
+    if hasattr(main_window, 'metadata_tab'):
+        main_window.metadata_tab.reset_tab()
 
 def save_project_state(main_window):
     """
@@ -150,7 +157,6 @@ def save_project_state(main_window):
         main_window.log(f"Project state saved to {os.path.basename(json_path)}")
     except Exception as e:
         main_window.log(f"Failed to save project state: {str(e)}")
-
 
 def load_project_state(main_window, video_path):
     """
