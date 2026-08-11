@@ -77,7 +77,7 @@ def clear_metadata(input_path: str, output_path: str):
         print(f"FFmpeg error clearing metadata: {e.stderr.decode()}")
         raise
 
-def get_metadata(input_path: str) -> Dict:
+def get_streams(input_path: str) -> Dict:
     """Retrieves metadata from a media file.
 
     Args:

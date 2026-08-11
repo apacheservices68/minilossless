@@ -1,6 +1,7 @@
 import math
 import os
 import cv2
+import torch
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit,
@@ -339,6 +340,7 @@ class AdvanceWatermarkTab(QWidget):
         right_layout.addWidget(ai_group)
         
         # Connect automatic saving on value change
+        self.chk_cuda.stateChanged.connect(self.check_cuda_support)
         self.chk_cuda.stateChanged.connect(self.trigger_auto_save)
         self.chk_face_blur.stateChanged.connect(self.trigger_auto_save)
         self.spin_face_blur_pct.valueChanged.connect(self.trigger_auto_save)
@@ -511,6 +513,22 @@ class AdvanceWatermarkTab(QWidget):
         main_win = self.window()
         if hasattr(main_win, "save_project_state"):
             main_win.save_project_state()
+
+    def check_cuda_support(self):
+        if self.chk_cuda.isChecked():
+            try:
+                if not torch.cuda.is_available():
+                    QMessageBox.warning(
+                        self, "CUDA Not Available",
+                        "NVIDIA GPU with CUDA support was not detected on your system. Reverting to CPU mode."
+                    )
+                    self.chk_cuda.setChecked(False)
+            except Exception as e:
+                QMessageBox.warning(
+                    self, "PyTorch Error",
+                    f"An error occurred while checking for CUDA support: {e}. Reverting to CPU mode."
+                )
+                self.chk_cuda.setChecked(False)
 
     def on_scene_selection_changed(self):
         selected = self.scene.selectedItems()

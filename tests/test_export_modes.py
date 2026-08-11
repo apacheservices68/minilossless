@@ -73,8 +73,8 @@ class TestExportModes(unittest.TestCase):
         # --- Khẳng định --- #
         self.assertEqual(mock_cut_video.call_count, 2)
         expected_calls = [
-            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-10_00-00-20.mp4"), "00:00:10", "00:00:20", audio_codec="copy"),
-            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-30_00-00-40.mp4"), "00:00:30", "00:00:40", audio_codec="copy"),
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-10_00-00-20.mp4"), "00:00:10", "00:00:20", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-30_00-00-40.mp4"), "00:00:30", "00:00:40", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
         ]
         mock_cut_video.assert_has_calls(expected_calls, any_order=True)
 
@@ -99,6 +99,7 @@ class TestExportModes(unittest.TestCase):
             os.path.join(self.mock_output_dir, 'video_00-00-01_00-00-02.mp4'),
             '00:00:01',
             '00:00:02',
+            tracks=self.basic_tab.track_control_widget.tracks,
             audio_codec=None
         )
 
@@ -129,7 +130,7 @@ class TestExportModes(unittest.TestCase):
         exported_file = os.path.join(self.mock_output_dir, 'video_00-00-05_00-00-08.mp4')
         merged_file = os.path.join(self.mock_output_dir, 'video_merged.mp4')
 
-        mock_cut_video.assert_called_with("/fake/video.mp4", exported_file, "00:00:05", "00:00:08", audio_codec="copy")
+        mock_cut_video.assert_called_with("/fake/video.mp4", exported_file, "00:00:05", "00:00:08", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy")
         mock_merge_videos.assert_called_once_with([exported_file], merged_file)
         mock_os_remove.assert_not_called()
         self.main_window.log.assert_any_call("Starting export with mode: merge")
@@ -162,8 +163,8 @@ class TestExportModes(unittest.TestCase):
 
         mock_merge_videos.assert_called_once_with([exported_file1, exported_file2], merged_file)
         mock_cut_video.assert_has_calls([
-            call("/fake/video.mp4", exported_file1, "00:00:01", "00:00:02", audio_codec="copy"),
-            call("/fake/video.mp4", exported_file2, "00:00:03", "00:00:04", audio_codec="copy"),
+            call("/fake/video.mp4", exported_file1, "00:00:01", "00:00:02", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", exported_file2, "00:00:03", "00:00:04", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
         ], any_order=True)
         
         self.assertEqual(mock_os_remove.call_count, 2)

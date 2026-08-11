@@ -150,6 +150,8 @@ class BasicCutTab(QWidget):
         self.update_segments_table_without_save()
         self.segments_widget.txt_manual_start.clear()
         self.segments_widget.txt_manual_end.clear()
+        self.track_control_widget.tracks = []
+        self.update_tracks_button()
 
     def toggle_play_pause(self):
         toggle_play_pause(self.video_player_widget.player, self.video_player_widget.btn_play_pause)
@@ -348,7 +350,14 @@ class BasicCutTab(QWidget):
             self.log(f"Exporting Segment {i+1}: {start_str} to {end_str} -> {output_filename}")
             
             try:
-                ffmpeg_service.cut_video(self.main_window.selected_video_path, output_path, start_str, end_str, audio_codec="copy" if not self.track_control_widget.is_audio_discarded else None)
+                ffmpeg_service.cut_video(
+                    self.main_window.selected_video_path, 
+                    output_path, 
+                    start_str, 
+                    end_str, 
+                    tracks=self.track_control_widget.tracks,
+                    audio_codec="copy" if not self.track_control_widget.is_audio_discarded else None
+                )
                 success_count += 1
                 exported_files.append(output_path)
                 self.log(f"Exported: {output_filename}")
@@ -453,7 +462,11 @@ class BasicCutTab(QWidget):
             return
         try:
             self.log("Loading video streams...")
-            self.track_control_widget.tracks = track_service.get_streams(self.main_window.selected_video_path)
+            probe = track_service.get_streams(self.main_window.selected_video_path)
+            streams = probe.get("streams", [])
+            for stream in streams:
+                stream["enabled"] = True  # Default to enabled
+            self.track_control_widget.tracks = streams
             self.update_tracks_button()
             self.log(f"Found {len(self.track_control_widget.tracks)} streams.")
         except Exception as e:
@@ -463,10 +476,15 @@ class BasicCutTab(QWidget):
 
     def update_tracks_button(self):
         total_tracks = len(self.track_control_widget.tracks)
-        if self.track_control_widget.is_audio_discarded:
-            enabled_tracks = sum(1 for t in self.track_control_widget.tracks if t.get("codec_type") == "video")
-        else:
-            enabled_tracks = total_tracks
+        
+        enabled_tracks = 0
+        for t in self.track_control_widget.tracks:
+            is_enabled = t.get("enabled", True)
+            if self.track_control_widget.is_audio_discarded and t.get("codec_type") == "audio":
+                is_enabled = False
+            
+            if is_enabled:
+                enabled_tracks += 1
 
         self.track_control_widget.btn_tracks_status.setText(f"Tracks ({enabled_tracks}/{total_tracks})")
 
@@ -475,8 +493,8 @@ class BasicCutTab(QWidget):
             QMessageBox.information(self, "Info", "No tracks loaded. Please open a video.")
             return
         dialog = TracksDialog(self.track_control_widget.tracks, self)
-        if dialog.exec():
-            self.update_tracks_button()
+        dialog.changes_applied.connect(self.update_tracks_button)
+        dialog.exec()
     
     def toggle_discard_audio(self):
         self.track_control_widget.is_audio_discarded = not self.track_control_widget.is_audio_discarded
@@ -558,12 +576,18 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(log_group)
 
     def set_active_video(self, video_path):
+        # Step 1: Reset workspace first to ensure a clean state.
+        self.reset_workspace()
+        
+        # Step 2: Set the new video path and load it into the player.
         self.selected_video_path = video_path
         self.log(f"Loaded active video: {video_path}")
         self.basic_tab.set_video_path_only(video_path)
         self.advance_tab.set_video_path_only(video_path)
         self.basic_tab.load_metadata()
-        # self.load_project_state(video_path)
+        
+        # Step 3: Now, attempt to load the project state.
+        self.load_project_state(video_path)
 
     def close_video(self):
         self.reset_workspace()
@@ -639,11 +663,17 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(log_group)
 
     def set_active_video(self, video_path):
+        # Step 1: Reset workspace first to ensure a clean state.
+        self.reset_workspace()
+
+        # Step 2: Set the new video path and load it into the player.
         self.selected_video_path = video_path
         self.log(f"Loaded active video: {video_path}")
         self.basic_tab.set_video_path_only(video_path)
         self.advance_tab.set_video_path_only(video_path)
         self.basic_tab.load_metadata()
+
+        # Step 3: Now, attempt to load the project state.
         self.load_project_state(video_path)
 
     def close_video(self):

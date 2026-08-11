@@ -8,7 +8,7 @@ from app.services.track_metadata_service import (
     remove_video,
     set_metadata,
     clear_metadata,
-    get_metadata
+    get_streams
 )
 
 class TestTrackMetadataService(unittest.TestCase):
@@ -84,11 +84,11 @@ class TestTrackMetadataService(unittest.TestCase):
             clear_metadata("in.mp4", "out.mp4")
 
     @patch("ffmpeg.probe")
-    def test_get_metadata(self, mock_ffmpeg_probe):
-        """Test that get_metadata calls ffmpeg.probe and returns the result."""
+    def test_get_streams(self, mock_ffmpeg_probe):
+        """Test that get_streams calls ffmpeg.probe and returns the result."""
         mock_ffmpeg_probe.return_value = {"format": {"tags": {"title": "test"}}}
 
-        metadata = get_metadata("input.mp4")
+        metadata = get_streams("input.mp4")
 
         mock_ffmpeg_probe.assert_called_with("input.mp4")
         self.assertEqual(metadata, {"format": {"tags": {"title": "test"}}})

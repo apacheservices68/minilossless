@@ -12,17 +12,17 @@ def reset_workspace(main_window):
     main_window.selected_video_path = ""
     
     # 1. Reset BasicCutTab
-    main_window.basic_tab.player.setSource(QUrl())
+    main_window.basic_tab.video_player_widget.player.setSource(QUrl())
     main_window.basic_tab.selected_video_path = ""
     main_window.basic_tab.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
-    main_window.basic_tab.slider_timeline.setRange(0, 0)
-    main_window.basic_tab.slider_timeline.setValue(0)
-    main_window.basic_tab.lbl_time.setText("00:00:00.000 / 00:00:00.000")
-    main_window.basic_tab.btn_play_pause.setText("Play")
+    main_window.basic_tab.video_player_widget.slider_timeline.setRange(0, 0)
+    main_window.basic_tab.video_player_widget.slider_timeline.setValue(0)
+    main_window.basic_tab.video_player_widget.lbl_time.setText("00:00:00.000 / 00:00:00.000")
+    main_window.basic_tab.video_player_widget.btn_play_pause.setText("Play")
     main_window.basic_tab.segments = []
     main_window.basic_tab.update_segments_table_without_save()
-    main_window.basic_tab.txt_manual_start.setText("")
-    main_window.basic_tab.txt_manual_end.setText("")
+    main_window.basic_tab.segments_widget.txt_manual_start.setText("")
+    main_window.basic_tab.segments_widget.txt_manual_end.setText("")
     main_window.basic_tab.txt_watermark.setText("")
     main_window.basic_tab.cb_position.setCurrentIndex(0)
     
@@ -168,8 +168,7 @@ def load_project_state(main_window, video_path):
     json_path = os.path.splitext(video_path)[0] + ".json"
     
     if not os.path.exists(json_path):
-        main_window.log(f"No JSON project file found at {json_path}. Resetting workspace.")
-        main_window.reset_workspace()
+        main_window.log(f"No JSON project file found at {json_path}. Starting with a clean state.")
         return
         
     try:
@@ -177,7 +176,6 @@ def load_project_state(main_window, video_path):
             data = json.load(f)
     except Exception as e:
         main_window.log(f"Failed to read project JSON: {str(e)}")
-        main_window.reset_workspace()
         return
         
     from app.services.ffmpeg_service import parse_time_to_seconds

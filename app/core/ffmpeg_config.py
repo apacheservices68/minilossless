@@ -1,4 +1,8 @@
+from app.core.ffmpeg_resolver import get_ffmpeg_path
+
 # FFmpeg Configuration and command builder helper functions
+
+FFMPEG_PATH = get_ffmpeg_path()
 
 # Dictionary to store all configuration options
 FFMPEG_CONFIGS = {
@@ -18,8 +22,10 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
     """
     Build command list to cut video.
     """
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-ss", start_time,
         "-to", end_time,
         "-i", input_path,
@@ -33,8 +39,10 @@ def get_ffmpeg_merge_cmd(temp_list: str, output_path: str) -> list[str]:
     """
     Build command list to merge multiple videos using concat demuxer.
     """
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-f", "concat",
         "-safe", "0",
         "-i", temp_list,
@@ -47,8 +55,10 @@ def get_ffmpeg_watermark_cmd(input_path: str, output_path: str, temp_watermark: 
     """
     Build command list to add a basic text watermark overlay.
     """
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-i", input_path,
         "-i", temp_watermark,
         "-filter_complex", f"[0:v][1:v]overlay={coords}[outv]",
@@ -73,9 +83,11 @@ def get_ffmpeg_pipe_cmd(
     """
     Build command list to push raw video frames to FFmpeg pipe.
     """
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     # Base command
     cmd = [
-        "ffmpeg", "-y",
+        FFMPEG_PATH, "-y",
         "-f", "rawvideo",
         "-pix_fmt", FFMPEG_CONFIGS["RAW_PIX_FMT"],
         "-s", f"{width}x{height}",
@@ -118,8 +130,10 @@ def get_ffmpeg_pipe_cmd(
 
 def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str) -> list[str]:
     """Build command for a precise, re-encoded cut."""
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-i", input_path,
         "-ss", start_time,
         "-to", end_time,
@@ -134,8 +148,10 @@ def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str,
 
 def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, quality: int, format: str) -> list[str]:
     """Build command to take a single snapshot."""
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     cmd = [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-ss", time,
         "-i", input_path,
         "-frames:v", "1",
@@ -147,7 +163,9 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
 
 def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> list[str]:
     """Build command for exporting with various options (FPS, tracks, metadata)."""
-    cmd = ["ffmpeg", "-i", input_path]
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
+    cmd = [FFMPEG_PATH, "-i", input_path]
 
     # Video and Audio filters
     video_filters = []
@@ -188,4 +206,3 @@ def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> l
 
     cmd.extend(["-y", output_path])
     return cmd
-

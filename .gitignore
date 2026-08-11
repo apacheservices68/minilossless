@@ -10,3 +10,11 @@ __pycache__/
 # Bỏ qua git
 .git/
 *.tflite
+
+# Ignores build binary artifacts
+assets/bin/
+dist/
+build/
+*.spec
+
+!assets/bin/.gitkeep

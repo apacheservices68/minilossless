@@ -14,11 +14,15 @@ from app.core.ffmpeg_config import (
     get_ffmpeg_snapshot_cmd,
     get_ffmpeg_export_cmd
 )
+from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
 
 def get_video_info(input_path: str) -> dict:
     """Run ffprobe to get video info."""
+    ffprobe_path = get_ffprobe_path()
+    if not ffprobe_path:
+        raise FileNotFoundError("ffprobe executable not found.")
     cmd = [
-        "ffprobe", "-v", "quiet", "-print_format", "json",
+        ffprobe_path, "-v", "quiet", "-print_format", "json",
         "-show_format", "-show_streams", input_path
     ]
     try:
@@ -73,16 +77,41 @@ def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
     else:
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, exact: bool = False) -> bool:
+def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, exact: bool = False, tracks: list = None, audio_codec: str = "copy") -> bool:
     """
     Cut video from start_time to end_time.
     If exact=True, uses re-encoding for frame accuracy.
+    Includes track and metadata handling.
     """
     try:
         if exact:
             cmd = get_ffmpeg_exact_cut_cmd(input_path, output_path, start_time, end_time)
         else:
-            cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
+            if tracks:
+                ffmpeg_path = get_ffmpeg_path()
+                if not ffmpeg_path:
+                    raise FileNotFoundError("ffmpeg executable not found.")
+                cmd = [ffmpeg_path, "-i", input_path, "-ss", start_time, "-to", end_time]
+                map_flags = []
+                metadata_flags = []
+                output_stream_index = 0
+                for track in tracks:
+                    if track.get("enabled", True):
+                        stream_index = track["index"]
+                        map_flags.extend(["-map", f"0:{stream_index}"])
+                        
+                        if "tags" in track:
+                            for key, value in track["tags"].items():
+                                metadata_flags.extend([f"-metadata:s:{output_stream_index}", f"{key}={value}"])
+                        output_stream_index += 1
+                
+                cmd.extend(map_flags)
+                cmd.extend(metadata_flags)
+                cmd.extend(["-c", "copy"])
+                cmd.extend(["-y", output_path])
+            else:
+                cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
+
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -375,7 +404,11 @@ def get_video_fps(input_path: str) -> float:
     Get the FPS of a video file.
     """
     try:
-        probe = ffmpeg.probe(input_path)
+        ffprobe_path = get_ffprobe_path()
+        if not ffprobe_path:
+            print("Error getting video FPS: ffprobe not found.")
+            return 0.0
+        probe = ffmpeg.probe(input_path, cmd=ffprobe_path)
         video_stream = next((stream for stream in probe["streams"] if stream["codec_type"] == "video"), None)
         if video_stream and "avg_frame_rate" in video_stream:
             num, den = map(int, video_stream["avg_frame_rate"].split("/"))
