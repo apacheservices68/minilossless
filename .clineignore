@@ -9,3 +9,7 @@ __pycache__/
 
 # Bỏ qua git
 .git/
+
+
+*.mp4
+*.json

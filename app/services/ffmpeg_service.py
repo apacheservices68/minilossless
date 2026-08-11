@@ -8,12 +8,12 @@ import ffmpeg
 from app.services.exact_cut_service import exact_cut as exact_cut_video
 from app.core.ffmpeg_config import (
     get_ffmpeg_cut_cmd,
-    get_ffmpeg_merge_cmd,
     get_ffmpeg_watermark_cmd,
     get_ffmpeg_pipe_cmd,
     get_ffmpeg_exact_cut_cmd,
     get_ffmpeg_snapshot_cmd,
-    get_ffmpeg_export_cmd
+    get_ffmpeg_export_cmd,
+    get_ffmpeg_merge_cmd
 )
 from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
 
@@ -27,7 +27,8 @@ def get_video_info(input_path: str) -> dict:
         "-show_format", "-show_streams", input_path
     ]
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        # THÊM: stdin=subprocess.DEVNULL
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return json.loads(result.stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"Error getting video info: {e}")
@@ -78,18 +79,36 @@ def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
     else:
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, duration: float, is_smart_cut: bool = False, tracks: list = None, audio_codec: str = "copy") -> bool:
+def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, duration: float, is_smart_cut: bool = False, tracks: list = None, audio_codec: str = "copy", progress_callback=None) -> bool:
     if is_smart_cut:
-        return exact_cut_video(input_path, output_path, start_time, duration, tracks)
+        # Smart cut handles its own exceptions and progress
+        return exact_cut_video(input_path, output_path, start_time, duration, tracks, progress_callback=progress_callback)
 
-    # Original lossless cut logic
     try:
+        if progress_callback:
+            progress_callback("cutting", 50)
+
         cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time, tracks, audio_codec)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True, universal_newlines=True)
+        # SỬA: Thêm stdin=subprocess.DEVNULL và giữ nguyên capture_output=True, text=True
+        result = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, text=True, check=True)
+        
+        if progress_callback:
+            progress_callback("cutting", 100)
+            
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error in lossless_cut: {e.stderr}")
-        raise Exception(e.stderr)
+        error_message = f"FFmpeg lossless_cut failed with return code {e.returncode}.\nOutput:\n{e.stdout}\nError:\n{e.stderr}"
+        print(error_message)
+        raise Exception(error_message) # Re-raise with a more informative message
+    except FileNotFoundError as e:
+        error_message = f"ffmpeg command not found: {e}. Ensure ffmpeg is in your system's PATH."
+        print(error_message)
+        raise Exception(error_message)
+    except Exception as e:
+        # Catch any other unexpected errors
+        error_message = f"An unexpected error occurred during lossless_cut: {e}"
+        print(error_message)
+        raise Exception(error_message)
 
 def merge_videos(video_paths: list[str], output_path: str) -> bool:
     """
@@ -103,11 +122,13 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as f:
             temp_list = f.name
             for path in video_paths:
-                escaped_path = path.replace("\"", "\"\\\"\"")
-                f.write(f"file ‘{escaped_path}’\n")
+                # To handle paths with spaces or special characters, wrap them in single quotes.
+                safe_path = path.replace("'", "'\\''")
+                f.write(f"file '{safe_path}'\n")
         
         cmd = get_ffmpeg_merge_cmd(temp_list, output_path)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        # THÊM: stdin=subprocess.DEVNULL
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Error in merge_videos: {e.stderr}")
@@ -190,7 +211,8 @@ def watermark_video(input_path: str, output_path: str, text: str, position: str)
         coords = pos_map.get(position, "x=10:y=10")
         
         cmd = get_ffmpeg_watermark_cmd(input_path, output_path, temp_watermark, coords)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        # THÊM: stdin=subprocess.DEVNULL
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Error in watermark_video: {e.stderr}")
@@ -396,15 +418,14 @@ def take_snapshot(input_path: str, output_path: str, time: str, quality: int, fo
     Take a snapshot of a video at a specific time.
     """
     try:
-        # FFmpeg quality for JPG is inverted (2-31, lower is better)
-        # We map 1-100 (UI) to 31-2 (ffmpeg)
         if format.lower() == 'jpg':
             q_value = int(31 - (quality / 100.0) * 29)
         else:
-            q_value = 0 # Not used for PNG
+            q_value = 0
 
         cmd = get_ffmpeg_snapshot_cmd(input_path, output_path, time, q_value, format)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        # THÊM: stdin=subprocess.DEVNULL
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Error taking snapshot: {e.stderr}")
@@ -414,7 +435,8 @@ def export_video(input_path: str, output_path: str, options: dict) -> bool:
     """Export video with various options (FPS, tracks, metadata)."""
     try:
         cmd = get_ffmpeg_export_cmd(input_path, output_path, options)
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        # THÊM: stdin=subprocess.DEVNULL
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Error in export_video: {e.stderr}")

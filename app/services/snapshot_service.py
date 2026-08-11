@@ -2,6 +2,7 @@
 """Service for taking snapshots from a video."""
 import ffmpeg
 import os
+from app.core.constants import IMAGE_FORMATS, VIDEO_CODECS
 
 def take_snapshot(input_path: str, output_path: str, timestamp_sec: float, quality: int, use_png: bool):
     """
@@ -18,13 +19,13 @@ def take_snapshot(input_path: str, output_path: str, timestamp_sec: float, quali
         stream = ffmpeg.input(input_path, ss=timestamp_sec)
         
         if use_png:
-            stream = stream.output(output_path, vframes=1, format='image2', vcodec='png')
+            stream = stream.output(output_path, vframes=1, format=IMAGE_FORMATS.IMAGE2, vcodec=VIDEO_CODECS.PNG)
         else:
             qscale = round(31 - (quality - 1) * 30 / 99)
             if qscale < 1: qscale = 1
             if qscale > 31: qscale = 31
             
-            stream = stream.output(output_path, vframes=1, format='image2', vcodec='mjpeg', q=qscale)
+            stream = stream.output(output_path, vframes=1, format=IMAGE_FORMATS.IMAGE2, vcodec=VIDEO_CODECS.MJPEG, q=qscale)
 
         stream.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 

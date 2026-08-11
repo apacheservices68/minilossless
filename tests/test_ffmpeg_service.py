@@ -28,7 +28,7 @@ def test_cut_video_routes_to_smart_cut(mock_exact_cut):
         duration=60.0, is_smart_cut=True, tracks=[]
     )
     mock_exact_cut.assert_called_once_with(
-        'input.mp4', 'output.mp4', '00:01:00', 60.0, []
+        'input.mp4', 'output.mp4', '00:01:00', 60.0, [], progress_callback=None
     )
 
 def test_smart_cut_invokes_correct_command(mock_subprocess_run):

@@ -94,8 +94,8 @@ def save_project_state(main_window):
     # 1. basic_cut
     cuts = []
     for seg in main_window.basic_tab.segments:
-        start_str = format_seconds_to_time(seg["start"], include_ms=False)
-        end_str = format_seconds_to_time(seg["end"], include_ms=False)
+        start_str = format_seconds_to_time(seg["start"], include_ms=True)
+        end_str = format_seconds_to_time(seg["end"], include_ms=True)
         cuts.append({"start": start_str, "end": end_str})
     
     basic_cut_data = {

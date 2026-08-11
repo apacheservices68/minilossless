@@ -35,13 +35,13 @@ class SegmentsWidget(QWidget):
         segments_layout.addLayout(manual_layout)
 
         actions_layout = QHBoxLayout()
-        btn_add_seg = QPushButton("Add Segment")
-        btn_update_seg = QPushButton("Update Selected")
-        btn_delete_seg = QPushButton("Delete Selected")
+        self.btn_add_seg = QPushButton("Add Segment")
+        self.btn_update_seg = QPushButton("Update Selected")
+        self.btn_delete_seg = QPushButton("Delete Selected")
 
-        actions_layout.addWidget(btn_add_seg)
-        actions_layout.addWidget(btn_update_seg)
-        actions_layout.addWidget(btn_delete_seg)
+        actions_layout.addWidget(self.btn_add_seg)
+        actions_layout.addWidget(self.btn_update_seg)
+        actions_layout.addWidget(self.btn_delete_seg)
         segments_layout.addLayout(actions_layout)
 
         export_layout = QHBoxLayout()
@@ -72,8 +72,8 @@ class SegmentsWidget(QWidget):
         self.setLayout(main_layout)
 
         # Connect signals
-        btn_add_seg.clicked.connect(self.main_window.add_segment_action)
-        btn_update_seg.clicked.connect(self.main_window.update_segment_action)
-        btn_delete_seg.clicked.connect(self.main_window.delete_segment_action)
+        self.btn_add_seg.clicked.connect(self.main_window.add_segment_action)
+        self.btn_update_seg.clicked.connect(self.main_window.update_segment_action)
+        self.btn_delete_seg.clicked.connect(self.main_window.delete_segment_action)
 
 

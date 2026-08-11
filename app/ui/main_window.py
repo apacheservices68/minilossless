@@ -5,15 +5,17 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QPushButton, QLabel, QLineEdit, QComboBox, QFileDialog,
     QTextEdit, QMessageBox, QGroupBox, QFormLayout, QSlider,
-    QTableWidget, QTableWidgetItem, QAbstractItemView, QCheckBox, QDialog, QHeaderView
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QCheckBox, QDialog, QHeaderView,
+    QProgressDialog
 )
-from PyQt6.QtCore import Qt, QUrl, QSizeF
+from PyQt6.QtCore import Qt, QUrl, QSizeF, QTimer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget, QGraphicsVideoItem
 
 import app.services.ffmpeg_service as ffmpeg_service
 import app.services.snapshot_service as snapshot_service
 import app.services.track_metadata_service as track_service
+# from app.services.export_worker import ExportWorker
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
@@ -31,6 +33,7 @@ class BasicCutTab(QWidget):
         super().__init__()
         self.main_window = main_window
         self.segments = []
+        # self.export_worker = None
         self.init_ui()
 
     def init_ui(self):
@@ -44,6 +47,7 @@ class BasicCutTab(QWidget):
         self.lbl_video_path = QLabel("No video selected. Click 'Open Video' to select one.")
         self.lbl_video_path.setWordWrap(True)
         btn_open = QPushButton("Open Video")
+        btn_open.setObjectName("btn_open")
         btn_open.clicked.connect(self.open_video)
         file_layout.addWidget(self.lbl_video_path, 1)
         file_layout.addWidget(btn_open)
@@ -215,9 +219,9 @@ class BasicCutTab(QWidget):
         self.segments_widget.selected_segment_index = selected_ranges[0].topRow()
         if 0 <= self.segments_widget.selected_segment_index < len(self.segments):
             seg = self.segments[self.segments_widget.selected_segment_index]
-            self.segments_widget.txt_manual_start.setText(ffmpeg_service.format_seconds_to_time(seg["start"]))
-            self.segments_widget.txt_manual_end.setText(ffmpeg_service.format_seconds_to_time(seg["end"]))
-            self.video_player_widget.player.setPosition(int(seg["start"] * 1000))
+            self.segments_widget.txt_manual_start.setText(ffmpeg_service.format_seconds_to_time(seg['start']))
+            self.segments_widget.txt_manual_end.setText(ffmpeg_service.format_seconds_to_time(seg['end']))
+            self.video_player_widget.player.setPosition(int(seg['start'] * 1000))
 
     def add_segment_action(self):
         start_str = self.segments_widget.txt_manual_start.text().strip()
@@ -234,8 +238,8 @@ class BasicCutTab(QWidget):
             QMessageBox.warning(self, "Warning", "Start time must be less than End time.")
             return
 
-        self.segments.append({"start": start_sec, "end": end_sec})
-        self.segments.sort(key=lambda s: s["start"])
+        self.segments.append({'start': start_sec, 'end': end_sec})
+        self.segments.sort(key=lambda s: s['start'])
         self.update_segments_table()
         self.log(f"Added segment: {start_str} - {end_str}")
 
@@ -258,8 +262,8 @@ class BasicCutTab(QWidget):
             QMessageBox.warning(self, "Warning", "Start time must be less than End time.")
             return
             
-        self.segments[self.segments_widget.selected_segment_index] = {"start": start_sec, "end": end_sec}
-        self.segments.sort(key=lambda s: s["start"])
+        self.segments[self.segments_widget.selected_segment_index] = {'start': start_sec, 'end': end_sec}
+        self.segments.sort(key=lambda s: s['start'])
         self.update_segments_table()
         self.log(f"Updated segment to: {start_str} - {end_str}")
 
@@ -279,14 +283,14 @@ class BasicCutTab(QWidget):
         current_pos_sec = self.video_player_widget.player.position() / 1000.0
         target_seg = None
         for seg in reversed(self.segments):
-            if seg["start"] < current_pos_sec - 0.5:
+            if seg['start'] < current_pos_sec - 0.5:
                 target_seg = seg
                 break
         
         if target_seg is None:
             target_seg = self.segments[-1]
             
-        self.video_player_widget.player.setPosition(int(target_seg["start"] * 1000))
+        self.video_player_widget.player.setPosition(int(target_seg['start'] * 1000))
         self.log(f"Jumped to segment start: {ffmpeg_service.format_seconds_to_time(target_seg['start'])}")
 
     def jump_to_next_segment(self):
@@ -296,14 +300,14 @@ class BasicCutTab(QWidget):
         current_pos_sec = self.video_player_widget.player.position() / 1000.0
         target_seg = None
         for seg in self.segments:
-            if seg["start"] > current_pos_sec + 0.5:
+            if seg['start'] > current_pos_sec + 0.5:
                 target_seg = seg
                 break
                 
         if target_seg is None:
             target_seg = self.segments[0]
             
-        self.video_player_widget.player.setPosition(int(target_seg["start"] * 1000))
+        self.video_player_widget.player.setPosition(int(target_seg['start'] * 1000))
         self.log(f"Jumped to segment start: {ffmpeg_service.format_seconds_to_time(target_seg['start'])}")
 
     def on_export_mode_changed(self, index):
@@ -314,7 +318,7 @@ class BasicCutTab(QWidget):
         if not self.main_window.selected_video_path:
             QMessageBox.warning(self, "Warning", "Please select an input video first!")
             return
-            
+
         if not self.segments:
             QMessageBox.warning(self, "Warning", "No segments defined to export.")
             return
@@ -325,86 +329,88 @@ class BasicCutTab(QWidget):
         if not dest_dir:
             return
 
-        export_mode = self.segments_widget.cb_export_mode.currentData()
-        do_cleanup = self.segments_widget.chk_cleanup.isChecked() and export_mode == 'merge'
-        is_smart_cut = self.segments_widget.smart_cut_checkbox.isChecked()
+        options = {
+            "export_mode": self.segments_widget.cb_export_mode.currentData(),
+            "do_cleanup": self.segments_widget.chk_cleanup.isChecked(),
+            "is_smart_cut": self.segments_widget.smart_cut_checkbox.isChecked(),
+            "tracks": self.track_control_widget.tracks,
+            "is_audio_discarded": self.track_control_widget.is_audio_discarded
+        }
 
-        self.log(f"Starting export with mode: {export_mode}")
-        if is_smart_cut:
-            self.log("Smart Cut mode enabled.")
-        
-        video_name = os.path.basename(self.main_window.selected_video_path)
-        base_name, ext = os.path.splitext(video_name)
-        
-        exported_files = []
-        success_count = 0
-        has_error = False
+        export_mode = options.get("export_mode", "separate")
 
-        for i, seg in enumerate(self.segments):
-            start_str = ffmpeg_service.format_seconds_to_time(seg["start"], include_ms=False)
-            end_str = ffmpeg_service.format_seconds_to_time(seg["end"], include_ms=False)
-            
-            safe_start = start_str.replace(":", "-")
-            safe_end = end_str.replace(":", "-")
-            
-            output_filename = f"{base_name}_{safe_start}_{safe_end}{ext}"
-            output_path = os.path.join(dest_dir, output_filename)
-            
-            self.log(f"Exporting Segment {i+1}: {start_str} to {end_str} -> {output_filename}")
-            
-            try:
-                duration = seg["end"] - seg["start"]
-                ffmpeg_service.cut_video(
-                    self.main_window.selected_video_path,
-                    output_path,
-                    start_str,
-                    end_str,
-                    duration=duration,
-                    is_smart_cut=is_smart_cut,
-                    tracks=self.track_control_widget.tracks,
-                    audio_codec="copy" if not self.track_control_widget.is_audio_discarded else None
-                )
-                success_count += 1
-                exported_files.append(output_path)
-                self.log(f"Exported: {output_filename}")
-            except Exception as e:
-                has_error = True
-                self.log(f"Error exporting Segment {i+1}: {str(e)}")
+        try:
+            self.log(f"Starting export in \'{export_mode}\' mode...")
 
-        if has_error:
-            QMessageBox.warning(self, "Export Error", f"Exported {success_count}/{len(self.segments)} segments. Check logs for details.")
-            return
+            if export_mode == "separate":
+                for i, segment in enumerate(self.segments):
+                    start_time = ffmpeg_service.format_seconds_to_time(segment["start"])
+                    end_time = ffmpeg_service.format_seconds_to_time(segment["end"])
+                    duration = segment["end"] - segment["start"]
+                    base_name, ext = os.path.splitext(os.path.basename(self.main_window.selected_video_path))
+                    output_filename = f"{base_name}_{i+1}_{start_time.replace(':', '-')}_{end_time.replace(':', '-')}{ext}"
+                    output_path = os.path.join(dest_dir, output_filename)
+                    
+                    self.log(f"Exporting segment {i+1}/{len(self.segments)} to {output_path}...")
+                    ffmpeg_service.cut_video(
+                        self.main_window.selected_video_path, 
+                        output_path, 
+                        start_time, 
+                        end_time, 
+                        duration,
+                        is_smart_cut=options.get("is_smart_cut", False),
+                        tracks=options.get("tracks"),
+                        progress_callback=lambda status, progress: self.log(f"[Cut] {status} at {progress}%")
+                    )
 
-        if export_mode == 'merge':
-            merged_filename = f"{base_name}_merged{ext}"
-            merged_output_path = os.path.join(dest_dir, merged_filename)
-            
-            self.log(f"Merging {len(exported_files)} files into {merged_filename}...")
-            try:
-                ffmpeg_service.merge_videos(exported_files, merged_output_path)
-                self.log(f"Successfully merged files into {merged_filename}")
+                final_message = f"Successfully exported {len(self.segments)} separate files."
+                self.log(final_message)
+                QMessageBox.information(self, "Export Finished", final_message)
 
-                if do_cleanup:
-                    self.log("Cleaning up intermediate segment files...")
-                    cleaned_count = 0
-                    for f_path in exported_files:
-                        try:
-                            os.remove(f_path)
-                            cleaned_count += 1
-                        except OSError as e:
-                            self.log(f"Error deleting file {f_path}: {e}")
-                    self.log(f"Cleaned up {cleaned_count} files.")
+            elif export_mode == "merge":
+                temp_files = []
+                base_name, ext = os.path.splitext(os.path.basename(self.main_window.selected_video_path))
                 
-                QMessageBox.information(self, "Export & Merge Finished", f"Successfully exported {success_count} segments and merged them into {merged_filename}")
+                for i, segment in enumerate(self.segments):
+                    start_time = ffmpeg_service.format_seconds_to_time(segment["start"])
+                    end_time = ffmpeg_service.format_seconds_to_time(segment["end"])
+                    duration = segment["end"] - segment["start"]
+                    temp_filename = os.path.join(dest_dir, f"temp_{base_name}_{i}{ext}")
+                    temp_files.append(temp_filename)
+                    
+                    self.log(f"Cutting segment {i+1}/{len(self.segments)} for merge...")
+                    ffmpeg_service.cut_video(
+                        self.main_window.selected_video_path, 
+                        temp_filename, 
+                        start_time, 
+                        end_time, 
+                        duration,
+                        is_smart_cut=options.get("is_smart_cut", False),
+                        tracks=options.get("tracks"),
+                        progress_callback=lambda status, progress: self.log(f"[Cut] {status} at {progress}%")
+                    )
 
-            except Exception as e:
-                self.log(f"Error merging files: {str(e)}")
-                QMessageBox.critical(self, "Merge Error", f"Failed to merge files. Your separate segment files are still available.\nError: {str(e)}")
-        else:
-            if success_count == len(self.segments):
-                QMessageBox.information(self, "Export Finished", f"Successfully exported all {success_count} segments!")
-            else:
-                QMessageBox.warning(self, "Export Finished with issues", f"Exported {success_count}/{len(self.segments)} segments. Check logs.")
+                output_filename = f"{base_name}_merged{ext}"
+                output_path = os.path.join(dest_dir, output_filename)
+                self.log(f"Merging {len(temp_files)} segments into {output_path}...")
+                ffmpeg_service.merge_videos(temp_files, output_path)
+
+                if options.get("do_cleanup", False):
+                    self.log("Cleaning up temporary files...")
+                    for f in temp_files:
+                        try:
+                            os.remove(f)
+                        except OSError as e:
+                            self.log(f"Could not remove temp file {f}: {e}")
+                
+                final_message = f"Successfully merged segments into {output_filename}."
+                self.log(final_message)
+                QMessageBox.information(self, "Export Finished", final_message)
+
+        except Exception as e:
+            error_message = f"An error occurred during export: {str(e)}"
+            self.log(error_message)
+            QMessageBox.critical(self, "Export Error", error_message)
 
     def watermark_video_action(self):
         if not self.main_window.selected_video_path:

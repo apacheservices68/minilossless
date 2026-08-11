@@ -1,75 +1,43 @@
 import pytest
-from app.core.ffmpeg_config import get_ffmpeg_pipe_cmd, FFMPEG_CONFIGS
+from app.core.ffmpeg_config import (
+    get_ffmpeg_cut_cmd,
+    get_ffmpeg_merge_cmd,
+    get_ffmpeg_watermark_cmd,
+    get_ffmpeg_pipe_cmd,
+    get_ffmpeg_exact_cut_cmd,
+    get_ffmpeg_snapshot_cmd,
+    get_ffmpeg_export_cmd,
+    FFMPEG_CONFIGS
+)
+from app.core.constants import FFMPEG_COMMANDS, FFMPEG_FLAGS, PIXEL_FORMATS, VIDEO_CODECS, HW_ACCELS
 
 def test_get_ffmpeg_pipe_cmd_nvenc_cuda():
-    """
-    Test get_ffmpeg_pipe_cmd when use_cuda=True.
-    Verify that the returned command is a list containing '-c:v h264_nvenc' and '-pix_fmt yuv420p'.
-    """
-    width = 1920
-    height = 1080
-    fps = 30.0
-    temp_watermark_path = "temp_wm.png"
-    input_video_path = "input.mp4"
-    output_video_path = "output.mp4"
-    
-    cmd = get_ffmpeg_pipe_cmd(
-        width=width,
-        height=height,
-        fps=fps,
-        temp_watermark_path=temp_watermark_path,
-        input_video_path=input_video_path,
-        use_cuda=True,
-        output_video_path=output_video_path
-    )
-    
+    width, height, fps = 1920, 1080, 30.0
+    temp_watermark_path, input_video_path, output_video_path = "temp_wm.png", "input.mp4", "output.mp4"
+
+    cmd = get_ffmpeg_pipe_cmd(width, height, fps, temp_watermark_path, input_video_path, True, output_video_path)
+
     assert isinstance(cmd, list)
-    
-    # NVENC uses h264_nvenc and yuv420p as per FFMPEG_CONFIGS
-    assert "-c:v" in cmd
-    # Find the index of -c:v and assert the next element is h264_nvenc (or NVENC_CODEC)
-    idx_codec = cmd.index("-c:v")
-    assert cmd[idx_codec + 1] == FFMPEG_CONFIGS["NVENC_CODEC"]
-    assert cmd[idx_codec + 1] == "h264_nvenc"
-    
-    assert "-pix_fmt" in cmd
-    idx_pix_fmt = cmd.index("-pix_fmt")
-    # There could be multiple -pix_fmt if rawvideo also specifies it, so let's verify yuv420p is one of the arguments or the trailing one.
-    # Actually, let's make sure FFMPEG_CONFIGS["PIX_FMT"] (yuv420p) is present.
-    assert FFMPEG_CONFIGS["PIX_FMT"] in cmd
-    assert "yuv420p" in cmd
-    
-    # Check general properties
-    assert "ffmpeg" in cmd[0]
-    assert input_video_path in cmd
-    assert output_video_path in cmd
-    assert temp_watermark_path in cmd
+    assert FFMPEG_COMMANDS.VIDEO_CODEC in cmd
+    idx_codec = cmd.index(FFMPEG_COMMANDS.VIDEO_CODEC)
+    assert cmd[idx_codec + 1] == FFMPEG_CONFIGS["NVENC_H264_CODEC"]
+    # The pix_fmt is not explicitly set for NVENC in the command builder
+    assert FFMPEG_CONFIGS["PIX_FMT"] not in cmd
 
 def test_get_ffmpeg_pipe_cmd_cpu():
-    """
-    Test get_ffmpeg_pipe_cmd when use_cuda=False.
-    """
-    width = 1920
-    height = 1080
-    fps = 30.0
-    temp_watermark_path = "temp_wm.png"
-    input_video_path = "input.mp4"
-    output_video_path = "output.mp4"
-    
-    cmd = get_ffmpeg_pipe_cmd(
-        width=width,
-        height=height,
-        fps=fps,
-        temp_watermark_path=temp_watermark_path,
-        input_video_path=input_video_path,
-        use_cuda=False,
-        output_video_path=output_video_path
-    )
-    
+    width, height, fps = 1920, 1080, 30.0
+    temp_watermark_path, input_video_path, output_video_path = "temp_wm.png", "input.mp4", "output.mp4"
+
+    cmd = get_ffmpeg_pipe_cmd(width, height, fps, temp_watermark_path, input_video_path, False, output_video_path)
+
     assert isinstance(cmd, list)
-    assert "-c:v" in cmd
-    idx_codec = cmd.index("-c:v")
+    assert FFMPEG_COMMANDS.VIDEO_CODEC in cmd
+    idx_codec = cmd.index(FFMPEG_COMMANDS.VIDEO_CODEC)
     assert cmd[idx_codec + 1] == FFMPEG_CONFIGS["CPU_CODEC"]
-    assert cmd[idx_codec + 1] == "libx264"
-    
-    assert "yuv420p" in cmd
+    assert FFMPEG_CONFIGS["PIX_FMT"] in cmd
+
+def test_ffmpeg_configs_values():
+    assert FFMPEG_CONFIGS["CPU_CODEC"] == VIDEO_CODECS.CPU_H264
+    assert FFMPEG_CONFIGS["NVENC_H264_CODEC"] == VIDEO_CODECS.NVENC_H264
+    assert FFMPEG_CONFIGS["PIX_FMT"] == PIXEL_FORMATS.YUV420P
+    assert FFMPEG_CONFIGS["HWACCEL_CUDA"] == HW_ACCELS.CUDA

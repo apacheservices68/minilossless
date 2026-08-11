@@ -1,4 +1,5 @@
 from app.core.ffmpeg_resolver import get_ffmpeg_path
+from app.core.constants import VIDEO_CODECS, HW_ACCELS, FFMPEG_COMMANDS, FFMPEG_FLAGS, PIXEL_FORMATS
 
 # FFmpeg Configuration and command builder helper functions
 
@@ -6,13 +7,38 @@ FFMPEG_PATH = get_ffmpeg_path()
 
 # Dictionary to store all configuration options
 FFMPEG_CONFIGS = {
-    "CPU_CODEC": "libx264",
+    # CPU Encoding
+    "CPU_CODEC": VIDEO_CODECS.CPU_H264,
     "CPU_PRESET": "fast",
     "CPU_CRF": "22",
-    "NVENC_CODEC": "h264_nvenc",
+
+    # NVIDIA NVENC
+    "NVENC_H264_CODEC": VIDEO_CODECS.NVENC_H264,
+    "NVENC_HEVC_CODEC": VIDEO_CODECS.NVENC_HEVC,
     "NVENC_PRESET": "p4",
-    "PIX_FMT": "yuv420p",
-    "RAW_PIX_FMT": "bgr24",
+
+    # Intel QSV
+    "QSV_H264_CODEC": VIDEO_CODECS.QSV_H264,
+
+    # AMD AMF
+    "AMF_H264_CODEC": VIDEO_CODECS.AMF_H264,
+
+    # VAAPI (Linux)
+    "VAAPI_H264_CODEC": VIDEO_CODECS.VAAPI_H264,
+    
+    # Hardware Acceleration Flags
+    "HWACCEL_CUDA": HW_ACCELS.CUDA,
+    "HWACCEL_AUTO": HW_ACCELS.AUTO,
+
+    # Pixel Formats
+    "PIX_FMT": PIXEL_FORMATS.YUV420P,
+    "RAW_PIX_FMT": PIXEL_FORMATS.BGR24,
+
+    # Audio
+    "AUDIO_CODEC_AAC": VIDEO_CODECS.AAC,
+    "AUDIO_BITRATE_192K": "192k",
+
+    # Optional Parameters
     "BITRATE": None,
     "QP": None,
     "GOP_SIZE": None,
@@ -25,7 +51,7 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
     if not FFMPEG_PATH:
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
 
-    cmd = [FFMPEG_PATH, "-y", "-ss", start_time, "-i", input_path, "-to", end_time]
+    cmd = [FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT, FFMPEG_COMMANDS.SEEK, start_time, FFMPEG_COMMANDS.INPUT, input_path, FFMPEG_COMMANDS.TO, end_time]
 
     if tracks:
         map_flags = []
@@ -34,37 +60,37 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
         for track in tracks:
             if track.get("enabled", True):
                 stream_index = track["index"]
-                map_flags.extend(["-map", f"0:{stream_index}"])
+                map_flags.extend([FFMPEG_COMMANDS.MAP, f"0:{stream_index}"])
 
                 if "tags" in track:
                     for key, value in track["tags"].items():
-                        metadata_flags.extend([f"-metadata:s:{output_stream_index}", f"{key}={value}"])
+                        metadata_flags.extend([f"{FFMPEG_COMMANDS.METADATA}:s:{output_stream_index}", f"{key}={value}"])
                 output_stream_index += 1
         cmd.extend(map_flags)
         cmd.extend(metadata_flags)
 
     if audio_codec:
-        cmd.extend(["-c", "copy"])
+        cmd.extend([FFMPEG_COMMANDS.COPY_CODEC, audio_codec])
     else:
         cmd.extend(["-vn"]) # No audio
 
-    cmd.extend(["-avoid_negative_ts", "make_zero", "-movflags", "+faststart"])
+    cmd.extend([FFMPEG_FLAGS.AVOID_NEGATIVE_TS, FFMPEG_FLAGS.MAKE_ZERO, "-movflags", FFMPEG_FLAGS.FASTSTART])
     cmd.append(output_path)
     return cmd
 
 def get_ffmpeg_merge_cmd(temp_list: str, output_path: str) -> list[str]:
     """
-    Build command list to merge multiple videos using concat demuxer.
+    Build command list for merging videos from a text file.
     """
     if not FFMPEG_PATH:
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
         FFMPEG_PATH,
-        "-f", "concat",
-        "-safe", "0",
-        "-i", temp_list,
-        "-c", "copy",
-        "-y",
+        "-f", FFMPEG_FLAGS.CONCAT,
+        FFMPEG_FLAGS.SAFE, "0",
+        FFMPEG_COMMANDS.INPUT, temp_list,
+        FFMPEG_COMMANDS.COPY_CODEC, "copy",
+        FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         output_path
     ]
 
@@ -76,15 +102,15 @@ def get_ffmpeg_watermark_cmd(input_path: str, output_path: str, temp_watermark: 
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
         FFMPEG_PATH,
-        "-i", input_path,
-        "-i", temp_watermark,
+        FFMPEG_COMMANDS.INPUT, input_path,
+        FFMPEG_COMMANDS.INPUT, temp_watermark,
         "-filter_complex", f"[0:v][1:v]overlay={coords}[outv]",
-        "-map", "[outv]",
-        "-map", "0:a?",
-        "-c:v", FFMPEG_CONFIGS["CPU_CODEC"],
-        "-preset", FFMPEG_CONFIGS["CPU_PRESET"],
-        "-crf", FFMPEG_CONFIGS["CPU_CRF"],
-        "-y",
+        FFMPEG_COMMANDS.MAP, "[outv]",
+        FFMPEG_COMMANDS.MAP, "0:a?",
+        FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"],
+        FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
+        FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
+        FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         output_path
     ]
 
@@ -104,17 +130,17 @@ def get_ffmpeg_pipe_cmd(
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     # Base command
     cmd = [
-        FFMPEG_PATH, "-y",
+        FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-f", "rawvideo",
-        "-pix_fmt", FFMPEG_CONFIGS["RAW_PIX_FMT"],
+        FFMPEG_COMMANDS.PIXEL_FORMAT, FFMPEG_CONFIGS["RAW_PIX_FMT"],
         "-s", f"{width}x{height}",
-        "-r", f"{fps}",
-        "-i", "-", 
-        "-i", temp_watermark_path,
-        "-i", input_video_path,
+        FFMPEG_COMMANDS.FRAME_RATE, f"{fps}",
+        FFMPEG_COMMANDS.INPUT, "-", 
+        FFMPEG_COMMANDS.INPUT, temp_watermark_path,
+        FFMPEG_COMMANDS.INPUT, input_video_path,
         "-filter_complex", "[0:v][1:v]overlay=0:0[outv]",
-        "-map", "[outv]",
-        "-map", "2:a?",
+        FFMPEG_COMMANDS.MAP, "[outv]",
+        FFMPEG_COMMANDS.MAP, "2:a?",
     ]
     
     # Optional parameters can be added to the dictionary to support bitrate, QP, gop size
@@ -123,24 +149,23 @@ def get_ffmpeg_pipe_cmd(
     
     if use_cuda:
         cmd.extend([
-            "-c:v", FFMPEG_CONFIGS["NVENC_CODEC"],
-            "-preset", FFMPEG_CONFIGS["NVENC_PRESET"],
-            "-pix_fmt", FFMPEG_CONFIGS["PIX_FMT"]
+            FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["NVENC_H264_CODEC"],
+            FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"]
         ])
     else:
         cmd.extend([
-            "-c:v", FFMPEG_CONFIGS["CPU_CODEC"],
-            "-preset", FFMPEG_CONFIGS["CPU_PRESET"],
-            "-crf", FFMPEG_CONFIGS["CPU_CRF"],
-            "-pix_fmt", FFMPEG_CONFIGS["PIX_FMT"]
+            FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"],
+            FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
+            FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
+            FFMPEG_COMMANDS.PIXEL_FORMAT, FFMPEG_CONFIGS["PIX_FMT"]
         ])
         
     if FFMPEG_CONFIGS["BITRATE"] is not None:
         cmd.extend(["-b:v", FFMPEG_CONFIGS["BITRATE"]])
     if FFMPEG_CONFIGS["QP"] is not None:
         cmd.extend(["-qp", str(FFMPEG_CONFIGS["QP"])])
-    if FFMPEG_CONFIGS["GOP_SIZE"] is not None:
-        cmd.extend(["-g", str(FFMPEG_CONFIGS["GOP_SIZE"])])
+        if FFMPEG_CONFIGS["GOP_SIZE"] is not None:
+            cmd.extend(["-g", str(FFMPEG_CONFIGS["GOP_SIZE"])])
         
     cmd.append(output_video_path)
     return cmd
@@ -151,17 +176,17 @@ def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str,
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
         FFMPEG_PATH,
-        "-ss", start_time,
-        "-i", input_path,
-        "-to", end_time,
-        "-vf", "setpts=PTS-STARTPTS",
-        "-af", "asetpts=PTS-STARTPTS",
-        "-c:v", FFMPEG_CONFIGS["CPU_CODEC"], # Re-encode for accuracy
-        "-preset", FFMPEG_CONFIGS["CPU_PRESET"],
-        "-crf", FFMPEG_CONFIGS["CPU_CRF"],
-        "-c:a", "aac", # Re-encode audio
-        "-b:a", "192k",
-        "-y",
+        FFMPEG_COMMANDS.SEEK, start_time,
+        FFMPEG_COMMANDS.INPUT, input_path,
+        FFMPEG_COMMANDS.TO, end_time,
+        FFMPEG_COMMANDS.VIDEO_FILTER, FFMPEG_FLAGS.SET_PTS_TO_START,
+        FFMPEG_COMMANDS.AUDIO_FILTER, FFMPEG_FLAGS.ASET_PTS_TO_START,
+        FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"], # Re-encode for accuracy
+        FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
+        FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
+        FFMPEG_COMMANDS.AUDIO_CODEC, FFMPEG_CONFIGS["AUDIO_CODEC_AAC"], # Re-encode audio
+        FFMPEG_COMMANDS.AUDIO_BITRATE, FFMPEG_CONFIGS["AUDIO_BITRATE_192K"],
+        FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         output_path
     ]
 
@@ -171,12 +196,12 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     cmd = [
         FFMPEG_PATH,
-        "-ss", time,
-        "-i", input_path,
-        "-frames:v", "1",
+        FFMPEG_COMMANDS.SEEK, time,
+        FFMPEG_COMMANDS.INPUT, input_path,
+        FFMPEG_COMMANDS.FRAMES_VIDEO, "1",
     ]
     if format.lower() == 'jpg':
-        cmd.extend(["-q:v", str(quality)]) # Quality for JPG (1-31, lower is better)
+        cmd.extend([FFMPEG_COMMANDS.QUALITY, str(quality)]) # Quality for JPG (1-31, lower is better)
     cmd.append(output_path)
     return cmd
 
@@ -184,12 +209,12 @@ def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> l
     """Build command for exporting with various options (FPS, tracks, metadata)."""
     if not FFMPEG_PATH:
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
-    cmd = [FFMPEG_PATH, "-i", input_path]
+    cmd = [FFMPEG_PATH, FFMPEG_COMMANDS.INPUT, input_path]
 
     # Video and Audio filters
     video_filters = []
     if options.get("fps"):
-        video_filters.append(f"fps={options['fps']}")
+        video_filters.append(f'fps={options["fps"]}')
 
     if video_filters:
         cmd.extend(["-filter:v", ",".join(video_filters)])
@@ -198,30 +223,30 @@ def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> l
     if options.get('remove_audio'):
         cmd.append("-an")
     elif options.get('keep_audio', True):
-        cmd.extend(["-map", "0:a?"])
+        cmd.extend([FFMPEG_COMMANDS.MAP, "0:a?"])
 
     if options.get('remove_video'):
         cmd.append("-vn")
     elif options.get('keep_video', True):
-        cmd.extend(["-map", "0:v?"])
+        cmd.extend([FFMPEG_COMMANDS.MAP, "0:v?"])
 
     # Codec selection
     if not video_filters and not options.get('remove_audio') and not options.get('remove_video'):
-        cmd.extend(["-c", "copy"]) # Default to stream copy if no filters/track removal
+        cmd.extend([FFMPEG_COMMANDS.COPY_CODEC, "copy"]) # Default to stream copy if no filters/track removal
     else:
-        cmd.extend(["-c:v", FFMPEG_CONFIGS["CPU_CODEC"], "-preset", FFMPEG_CONFIGS["CPU_PRESET"], "-crf", FFMPEG_CONFIGS["CPU_CRF"]])
+        cmd.extend([FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"], FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"], FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"]])
         if not options.get('remove_audio'):
-            cmd.extend(["-c:a", "aac", "-b:a", "192k"]) # Re-encode audio if video is re-encoded
+            cmd.extend([FFMPEG_COMMANDS.AUDIO_CODEC, FFMPEG_CONFIGS["AUDIO_CODEC_AAC"], FFMPEG_COMMANDS.AUDIO_BITRATE, FFMPEG_CONFIGS["AUDIO_BITRATE_192K"]]) # Re-encode audio if video is re-encoded
 
     # Metadata
     if options.get('metadata'):
-        cmd.extend(["-map_metadata", "-1"]) # Clear existing metadata
+        cmd.extend([FFMPEG_COMMANDS.MAP_METADATA, "-1"]) # Clear existing metadata
         for meta in options['metadata'].split('\n'):
             if '=' in meta:
                 key, value = meta.split('=', 1)
-                cmd.extend(["-metadata", f"{key.strip()}={value.strip()}"])
+                cmd.extend([FFMPEG_COMMANDS.METADATA, f'{key.strip()}={value.strip()}'])
     else:
-        cmd.extend(["-map_metadata", "0"]) # Keep original metadata
+        cmd.extend([FFMPEG_COMMANDS.MAP_METADATA, "0"]) # Keep original metadata
 
-    cmd.extend(["-y", output_path])
+    cmd.extend([FFMPEG_COMMANDS.OVERWRITE_OUTPUT, output_path])
     return cmd
