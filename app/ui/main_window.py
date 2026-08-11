@@ -16,6 +16,7 @@ import app.services.ffmpeg_service as ffmpeg_service
 import app.services.snapshot_service as snapshot_service
 import app.services.track_metadata_service as track_service
 # from app.services.export_worker import ExportWorker
+from app.services.smartcut_service import SmartCutWorker
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
@@ -338,6 +339,21 @@ class BasicCutTab(QWidget):
         }
 
         export_mode = options.get("export_mode", "separate")
+
+        if options.get("is_smart_cut", False):
+            self.log("Initializing background Smartcut worker...")
+            self.smart_worker = SmartCutWorker(
+                self.main_window.selected_video_path,
+                dest_dir,
+                self.segments,
+                options,
+                self
+            )
+            self.smart_worker.log_signal.connect(self.log)
+            self.smart_worker.finished_signal.connect(lambda msg: QMessageBox.information(self, "Export Finished", msg))
+            self.smart_worker.error_signal.connect(lambda err: QMessageBox.critical(self, "Export Error", err))
+            self.smart_worker.start()
+            return
 
         try:
             self.log(f"Starting export in \'{export_mode}\' mode...")
