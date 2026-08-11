@@ -327,8 +327,11 @@ class BasicCutTab(QWidget):
 
         export_mode = self.segments_widget.cb_export_mode.currentData()
         do_cleanup = self.segments_widget.chk_cleanup.isChecked() and export_mode == 'merge'
+        is_smart_cut = self.segments_widget.smart_cut_checkbox.isChecked()
 
         self.log(f"Starting export with mode: {export_mode}")
+        if is_smart_cut:
+            self.log("Smart Cut mode enabled.")
         
         video_name = os.path.basename(self.main_window.selected_video_path)
         base_name, ext = os.path.splitext(video_name)
@@ -350,11 +353,14 @@ class BasicCutTab(QWidget):
             self.log(f"Exporting Segment {i+1}: {start_str} to {end_str} -> {output_filename}")
             
             try:
+                duration = seg["end"] - seg["start"]
                 ffmpeg_service.cut_video(
-                    self.main_window.selected_video_path, 
-                    output_path, 
-                    start_str, 
-                    end_str, 
+                    self.main_window.selected_video_path,
+                    output_path,
+                    start_str,
+                    end_str,
+                    duration=duration,
+                    is_smart_cut=is_smart_cut,
                     tracks=self.track_control_widget.tracks,
                     audio_codec="copy" if not self.track_control_widget.is_audio_discarded else None
                 )
@@ -586,93 +592,6 @@ class MainWindow(QMainWindow):
         self.advance_tab.set_video_path_only(video_path)
         self.basic_tab.load_metadata()
         
-        # Step 3: Now, attempt to load the project state.
-        self.load_project_state(video_path)
-
-    def close_video(self):
-        self.reset_workspace()
-
-    def reset_workspace(self):
-        from app.core.config_manager import reset_workspace
-        reset_workspace(self)
-        self.log("Workspace reset. Closing player and clearing state.")
-
-    def save_project_state(self):
-        from app.core.config_manager import save_project_state
-        save_project_state(self)
-
-    def load_project_state(self, video_path):
-        from app.core.config_manager import load_project_state
-        load_project_state(self, video_path)
-
-    def log(self, message: str):
-        self.log_output.append(message)
-
-    def keyPressEvent(self, event):
-        is_ctrl_w = (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() == Qt.Key.Key_W
-        is_cmd_w = (event.modifiers() & Qt.KeyboardModifier.MetaModifier) and event.key() == Qt.Key.Key_W
-        if is_ctrl_w or is_cmd_w:
-            self.close_video()
-            return
-
-        if self.tabs.currentWidget() == self.basic_tab:
-            if event.key() == Qt.Key.Key_BracketLeft:
-                self.basic_tab.set_start_to_current()
-            elif event.key() == Qt.Key.Key_BracketRight:
-                self.basic_tab.set_end_to_current()
-            elif event.key() == Qt.Key.Key_Space:
-                focused = self.focusWidget()
-                if not isinstance(focused, QLineEdit):
-                    self.basic_tab.toggle_play_pause()
-            else:
-                super().keyPressEvent(event)
-        else:
-            super().keyPressEvent(event)
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.selected_video_path = ""
-        self.init_ui()
-
-    def init_ui(self):
-        self.setWindowTitle("Mini LosslessCut - Professional Edition with AI")
-        self.resize(1200, 850)
-
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-
-        self.tabs = QTabWidget()
-        self.basic_tab = BasicCutTab(self)
-        self.advance_tab = AdvanceWatermarkTab(self)
-        
-        self.advance_tab.log_message.connect(self.log)
-
-        self.tabs.addTab(self.basic_tab, "Basic Cut / Main")
-        self.tabs.addTab(self.advance_tab, "Advance Watermark & AI")
-        main_layout.addWidget(self.tabs, 1)
-
-        log_group = QGroupBox("Global Log Console")
-        log_layout = QVBoxLayout()
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setMaximumHeight(150)
-        log_layout.addWidget(self.log_output)
-        log_group.setLayout(log_layout)
-        main_layout.addWidget(log_group)
-
-    def set_active_video(self, video_path):
-        # Step 1: Reset workspace first to ensure a clean state.
-        self.reset_workspace()
-
-        # Step 2: Set the new video path and load it into the player.
-        self.selected_video_path = video_path
-        self.log(f"Loaded active video: {video_path}")
-        self.basic_tab.set_video_path_only(video_path)
-        self.advance_tab.set_video_path_only(video_path)
-        self.basic_tab.load_metadata()
-
         # Step 3: Now, attempt to load the project state.
         self.load_project_state(video_path)
 

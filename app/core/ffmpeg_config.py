@@ -18,22 +18,39 @@ FFMPEG_CONFIGS = {
     "GOP_SIZE": None,
 }
 
-def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str) -> list[str]:
+def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
     """
-    Build command list to cut video.
+    Build command list for lossless video cutting.
     """
     if not FFMPEG_PATH:
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
-    return [
-        FFMPEG_PATH,
-        "-ss", start_time,
-        "-to", end_time,
-        "-i", input_path,
-        "-c", "copy",
-        "-avoid_negative_ts", "make_zero",
-        "-y",
-        output_path
-    ]
+
+    cmd = [FFMPEG_PATH, "-y", "-ss", start_time, "-i", input_path, "-to", end_time]
+
+    if tracks:
+        map_flags = []
+        metadata_flags = []
+        output_stream_index = 0
+        for track in tracks:
+            if track.get("enabled", True):
+                stream_index = track["index"]
+                map_flags.extend(["-map", f"0:{stream_index}"])
+
+                if "tags" in track:
+                    for key, value in track["tags"].items():
+                        metadata_flags.extend([f"-metadata:s:{output_stream_index}", f"{key}={value}"])
+                output_stream_index += 1
+        cmd.extend(map_flags)
+        cmd.extend(metadata_flags)
+
+    if audio_codec:
+        cmd.extend(["-c", "copy"])
+    else:
+        cmd.extend(["-vn"]) # No audio
+
+    cmd.extend(["-avoid_negative_ts", "make_zero", "-movflags", "+faststart"])
+    cmd.append(output_path)
+    return cmd
 
 def get_ffmpeg_merge_cmd(temp_list: str, output_path: str) -> list[str]:
     """
@@ -134,9 +151,11 @@ def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str,
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
     return [
         FFMPEG_PATH,
-        "-i", input_path,
         "-ss", start_time,
+        "-i", input_path,
         "-to", end_time,
+        "-vf", "setpts=PTS-STARTPTS",
+        "-af", "asetpts=PTS-STARTPTS",
         "-c:v", FFMPEG_CONFIGS["CPU_CODEC"], # Re-encode for accuracy
         "-preset", FFMPEG_CONFIGS["CPU_PRESET"],
         "-crf", FFMPEG_CONFIGS["CPU_CRF"],

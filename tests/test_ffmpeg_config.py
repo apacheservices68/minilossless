@@ -40,7 +40,7 @@ def test_get_ffmpeg_pipe_cmd_nvenc_cuda():
     assert "yuv420p" in cmd
     
     # Check general properties
-    assert "ffmpeg" in cmd
+    assert "ffmpeg" in cmd[0]
     assert input_video_path in cmd
     assert output_video_path in cmd
     assert temp_watermark_path in cmd

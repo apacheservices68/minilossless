@@ -46,8 +46,10 @@ class TestExportModes(unittest.TestCase):
             self.basic_tab.segments_widget = MagicMock()
             self.basic_tab.segments_widget.cb_export_mode = MagicMock()
             self.basic_tab.segments_widget.chk_cleanup = MagicMock()
+            self.basic_tab.segments_widget.smart_cut_checkbox = MagicMock()
             self.basic_tab.track_control_widget = MagicMock()
             self.basic_tab.track_control_widget.is_audio_discarded = False
+            self.basic_tab.segments_widget.smart_cut_checkbox.isChecked.return_value = False # Default to not smart cut
 
     def tearDown(self):
         """Chạy sau mỗi test case để dọn dẹp."""
@@ -66,17 +68,25 @@ class TestExportModes(unittest.TestCase):
         ]
         self.basic_tab.segments_widget.cb_export_mode.currentData.return_value = 'separate'
         self.basic_tab.segments_widget.chk_cleanup.isChecked.return_value = False
+        self.basic_tab.segments_widget.smart_cut_checkbox.isChecked.return_value = False
 
         # --- Thực thi --- #
         self.basic_tab.export_segments_action()
 
         # --- Khẳng định --- #
         self.assertEqual(mock_cut_video.call_count, 2)
+        
+        # Use ANY for duration to avoid floating point precision issues
+        from unittest.mock import ANY
         expected_calls = [
-            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-10_00-00-20.mp4"), "00:00:10", "00:00:20", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
-            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-30_00-00-40.mp4"), "00:00:30", "00:00:40", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-10_00-00-20.mp4"), "00:00:10", "00:00:20", duration=9.5, is_smart_cut=False, tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", os.path.join(self.mock_output_dir, "video_00-00-30_00-00-40.mp4"), "00:00:30", "00:00:40", duration=ANY, is_smart_cut=False, tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
         ]
         mock_cut_video.assert_has_calls(expected_calls, any_order=True)
+        
+        # Optional: Check the duration approximately if needed
+        second_call_args = mock_cut_video.call_args_list[1]
+        self.assertAlmostEqual(second_call_args.kwargs["duration"], 10.2, places=5)
 
     @patch(f'{FFMPEG_SERVICE_PATH}.cut_video')
     @patch(f'{FFMPEG_SERVICE_PATH}.merge_videos')
@@ -99,6 +109,8 @@ class TestExportModes(unittest.TestCase):
             os.path.join(self.mock_output_dir, 'video_00-00-01_00-00-02.mp4'),
             '00:00:01',
             '00:00:02',
+            duration=1.0,
+            is_smart_cut=False,
             tracks=self.basic_tab.track_control_widget.tracks,
             audio_codec=None
         )
@@ -130,7 +142,7 @@ class TestExportModes(unittest.TestCase):
         exported_file = os.path.join(self.mock_output_dir, 'video_00-00-05_00-00-08.mp4')
         merged_file = os.path.join(self.mock_output_dir, 'video_merged.mp4')
 
-        mock_cut_video.assert_called_with("/fake/video.mp4", exported_file, "00:00:05", "00:00:08", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy")
+        mock_cut_video.assert_called_with("/fake/video.mp4", exported_file, "00:00:05", "00:00:08", duration=3.0, is_smart_cut=False, tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy")
         mock_merge_videos.assert_called_once_with([exported_file], merged_file)
         mock_os_remove.assert_not_called()
         self.main_window.log.assert_any_call("Starting export with mode: merge")
@@ -163,8 +175,8 @@ class TestExportModes(unittest.TestCase):
 
         mock_merge_videos.assert_called_once_with([exported_file1, exported_file2], merged_file)
         mock_cut_video.assert_has_calls([
-            call("/fake/video.mp4", exported_file1, "00:00:01", "00:00:02", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
-            call("/fake/video.mp4", exported_file2, "00:00:03", "00:00:04", tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", exported_file1, "00:00:01", "00:00:02", duration=1.0, is_smart_cut=False, tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
+            call("/fake/video.mp4", exported_file2, "00:00:03", "00:00:04", duration=1.0, is_smart_cut=False, tracks=self.basic_tab.track_control_widget.tracks, audio_codec="copy"),
         ], any_order=True)
         
         self.assertEqual(mock_os_remove.call_count, 2)

@@ -62,6 +62,9 @@ class SegmentsWidget(QWidget):
         cleanup_layout.addWidget(self.chk_cleanup)
         segments_layout.addLayout(cleanup_layout)
 
+        self.smart_cut_checkbox = QCheckBox("Enable Smart Cut (Exact Cut)")
+        segments_layout.addWidget(self.smart_cut_checkbox)
+
         segments_group.setLayout(segments_layout)
 
         main_layout = QVBoxLayout(self)

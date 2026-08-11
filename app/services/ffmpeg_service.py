@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import json
 import ffmpeg
+from app.services.exact_cut_service import exact_cut as exact_cut_video
 from app.core.ffmpeg_config import (
     get_ffmpeg_cut_cmd,
     get_ffmpeg_merge_cmd,
@@ -77,45 +78,17 @@ def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
     else:
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, exact: bool = False, tracks: list = None, audio_codec: str = "copy") -> bool:
-    """
-    Cut video from start_time to end_time.
-    If exact=True, uses re-encoding for frame accuracy.
-    Includes track and metadata handling.
-    """
-    try:
-        if exact:
-            cmd = get_ffmpeg_exact_cut_cmd(input_path, output_path, start_time, end_time)
-        else:
-            if tracks:
-                ffmpeg_path = get_ffmpeg_path()
-                if not ffmpeg_path:
-                    raise FileNotFoundError("ffmpeg executable not found.")
-                cmd = [ffmpeg_path, "-i", input_path, "-ss", start_time, "-to", end_time]
-                map_flags = []
-                metadata_flags = []
-                output_stream_index = 0
-                for track in tracks:
-                    if track.get("enabled", True):
-                        stream_index = track["index"]
-                        map_flags.extend(["-map", f"0:{stream_index}"])
-                        
-                        if "tags" in track:
-                            for key, value in track["tags"].items():
-                                metadata_flags.extend([f"-metadata:s:{output_stream_index}", f"{key}={value}"])
-                        output_stream_index += 1
-                
-                cmd.extend(map_flags)
-                cmd.extend(metadata_flags)
-                cmd.extend(["-c", "copy"])
-                cmd.extend(["-y", output_path])
-            else:
-                cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time)
+def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, duration: float, is_smart_cut: bool = False, tracks: list = None, audio_codec: str = "copy") -> bool:
+    if is_smart_cut:
+        return exact_cut_video(input_path, output_path, start_time, duration, tracks)
 
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+    # Original lossless cut logic
+    try:
+        cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time, tracks, audio_codec)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True, universal_newlines=True)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error in cut_video: {e.stderr}")
+        print(f"Error in lossless_cut: {e.stderr}")
         raise Exception(e.stderr)
 
 def merge_videos(video_paths: list[str], output_path: str) -> bool:
