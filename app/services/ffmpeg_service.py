@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import json
 import ffmpeg
+from app.core.watermark_constants import WATERMARK_POSITIONS
 from app.services.exact_cut_service import exact_cut as exact_cut_video
 from app.core.ffmpeg_config import (
     get_ffmpeg_cut_cmd,
@@ -201,14 +202,9 @@ def watermark_video(input_path: str, output_path: str, text: str, position: str)
     try:
         create_text_watermark_image(text, temp_watermark)
         
-        pos_map = {
-            "top_left": "x=10:y=10",
-            "top_right": "x=W-w-10:y=10",
-            "bottom_left": "x=10:y=H-h-10",
-            "bottom_right": "x=W-w-10:y=H-h-10"
-        }
-        
-        coords = pos_map.get(position, "x=10:y=10")
+        #### 081326 fix bug call from watermark constant
+        position_info = WATERMARK_POSITIONS.get(position, {})
+        coords = position_info.get("expr", "x=10:y=10")
         
         cmd = get_ffmpeg_watermark_cmd(input_path, output_path, temp_watermark, coords)
         # THÊM: stdin=subprocess.DEVNULL
