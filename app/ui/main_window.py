@@ -19,6 +19,8 @@ import app.services.img_watermark_service as img_watermark_service
 # Added on 08132026: [VI] Import cac module cho tinh nang watermark hinh anh / [EN] Import modules for image watermark feature
 from app.core.watermark_constants import WATERMARK_POSITIONS
 # Added on 08132026: [VI] Import cac module cho tinh nang watermark hinh anh / [EN] Import modules for image watermark feature
+from app.services.text_watermark_service import WatermarkWorker
+from app.services.watermark_service import UniversalWatermarkWorker
 from app.ui.components.img_watermark_widget import ImgWatermarkWidget
 
 import app.services.track_metadata_service as track_service
@@ -443,59 +445,59 @@ class BasicCutTab(QWidget):
             self.log(error_message)
             QMessageBox.critical(self, "Export Error", error_message)
 
+    # 08142026: [VI] Them tinh nang watermark hinh anh / [EN] Add image watermark feature
     def watermark_video_action(self):
-        # Added on 08132026: [VI] Kiem tra video dau vao / [EN] Check for input video
         if not self.main_window.selected_video_path:
             QMessageBox.warning(self, "Warning", "Please select an input video first!")
             return
 
-        # Added on 08132026: [VI] Lay vi tri da chon / [EN] Get selected position
         position = self.cb_position.currentData()
-        # Added on 08132026: [VI] Lay duoi file / [EN] Get file extension
         ext = os.path.splitext(self.main_window.selected_video_path)[1]
-        # Added on 08132026: [VI] Mo dialog luu file / [EN] Open save file dialog
         output_path, _ = QFileDialog.getSaveFileName(
             self, "Save Watermarked Video As", f"watermark_output{ext}", f"Video Files (*{ext});;All Files (*)"
         )
-        # Added on 08132026: [VI] Kiem tra neu nguoi dung huy / [EN] Check if user cancelled
         if not output_path:
             return
 
-        # Added on 08132026: [VI] Kiem tra neu che do watermark hinh anh duoc bat / [EN] Check if image watermark mode is enabled
-        if self.img_watermark_widget.chk_use_image.isChecked():
-            # Added on 08132026: [VI] Lay duong dan hinh anh / [EN] Get image path
-            image_path = self.img_watermark_widget.txt_image_path.text().strip()
-            # Added on 08132026: [VI] Kiem tra duong dan hinh anh / [EN] Validate image path
-            if not image_path:
-                QMessageBox.warning(self, "Warning", "Please select a watermark image.")
-                return
+        # 1. Xác định Tham số & Kiểu Watermark
+        is_image = self.img_watermark_widget.chk_use_image.isChecked()
+        wm_type = "image" if is_image else "text"
+        
+        image_path = self.img_watermark_widget.txt_image_path.text().strip() if is_image else ""
+        text = self.txt_watermark.text().strip() if not is_image else ""
 
-            # Added on 08132026: [VI] Ghi log / [EN] Log action
-            self.log(f"Adding image watermark \'{os.path.basename(image_path)}\' at position \'{self.cb_position.currentText()}\'...")
-            # Added on 08132026: [VI] Goi service / [EN] Call service
-            try:
-                img_watermark_service.apply_image_watermark(self.main_window.selected_video_path, output_path, image_path, position)
-                self.log(f"Successfully saved watermarked video to: {output_path}")
-                QMessageBox.information(self, "Success", "Image watermark added successfully!")
-            except Exception as e:
-                self.log(f"Error applying image watermark: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Failed to apply image watermark:\n{str(e)}")
+        # Validation
+        if is_image and not image_path:
+            QMessageBox.warning(self, "Warning", "Please select a watermark image.")
+            return
+        if not is_image and not text:
+            QMessageBox.warning(self, "Warning", "Please enter watermark text.")
+            return
 
-        else:
-            # Added on 08132026: [VI] Logic cho watermark van ban (hien co) / [EN] Logic for text watermark (existing)
-            text = self.txt_watermark.text().strip()
-            if not text:
-                QMessageBox.warning(self, "Warning", "Please enter watermark text.")
-                return
+        self.log(f"Adding {wm_type} watermark at position '{self.cb_position.currentText()}'...")
 
-            self.log(f"Adding text watermark \'{text}\' at position \'{self.cb_position.currentText()}\'...")
-            try:
-                ffmpeg_service.watermark_video(self.main_window.selected_video_path, output_path, text, position)
-                self.log(f"Successfully saved watermarked video to: {output_path}")
-                QMessageBox.information(self, "Success", "Text watermark added successfully!")
-            except Exception as e:
-                self.log(f"Error watermarking video: {str(e)}")
-                QMessageBox.critical(self, "Error", f"Failed to watermark video:\n{str(e)}")
+        # 2. Khởi tạo 1 Worker duy nhất
+        self.watermark_worker = UniversalWatermarkWorker(
+            watermark_type=wm_type,
+            video_path=self.main_window.selected_video_path,
+            output_path=output_path,
+            position=position,
+            text=text,
+            image_path=image_path,
+            parent=self
+        )
+
+        # 3. Kết nối Signal
+        self.watermark_worker.log_signal.connect(self.log)
+        self.watermark_worker.finished_signal.connect(
+            lambda msg: QMessageBox.information(self, "Success", msg)
+        )
+        self.watermark_worker.error_signal.connect(
+            lambda err: QMessageBox.critical(self, "Error", err)
+        )
+
+        # 4. Chạy Thread
+        self.watermark_worker.start()
 
     def merge_videos_action(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
