@@ -1,7 +1,6 @@
 import math
 import os
 import cv2
-import torch
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit,
@@ -516,17 +515,28 @@ class AdvanceWatermarkTab(QWidget):
 
     def check_cuda_support(self):
         if self.chk_cuda.isChecked():
+            has_cuda = False
             try:
-                if not torch.cuda.is_available():
-                    QMessageBox.warning(
-                        self, "CUDA Not Available",
-                        "NVIDIA GPU with CUDA support was not detected on your system. Reverting to CPU mode."
-                    )
-                    self.chk_cuda.setChecked(False)
-            except Exception as e:
+                # 1. Kiểm tra bằng OpenCV (Hỗ trợ tốt Windows, Linux & macOS)
+                if hasattr(cv2, 'cuda') and cv2.cuda.getCudaEnabledDeviceCount() > 0:
+                    has_cuda = True
+            except Exception:
+                has_cuda = False
+
+            if not has_cuda:
+                try:
+                    import subprocess
+                    cmd = "nvidia-smi.exe" if os.name == "nt" else "nvidia-smi"
+                    res = subprocess.run([cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+                    if res.returncode == 0:
+                        has_cuda = True
+                except Exception:
+                    has_cuda = False
+
+            if not has_cuda:
                 QMessageBox.warning(
-                    self, "PyTorch Error",
-                    f"An error occurred while checking for CUDA support: {e}. Reverting to CPU mode."
+                    self, "CUDA Not Available",
+                    "NVIDIA GPU with CUDA support was not detected on your system. Reverting to CPU mode."
                 )
                 self.chk_cuda.setChecked(False)
 
