@@ -44,3 +44,8 @@ WATERMARK_POSITIONS = {
         "expr": "x=W-w-10:y=(H-h)/2"
     }
 }
+
+DEFAULT_FONT_PATH = "assets/fonts/DejaVuSans-Bold.ttf"
+DEFAULT_FONT_FAMILY = "DejaVu Sans"
+DEFAULT_VIDEO_WIDTH = 1280
+DEFAULT_VIDEO_HEIGHT = 720
