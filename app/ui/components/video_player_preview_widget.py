@@ -176,36 +176,6 @@ class VideoPlayerPreviewWidget(QWidget):
         if hasattr(self, 'video_w') and self.video_w > 0:
             self.view.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    # def set_video_path_only(self, path):
-    #     self.selected_video_path = path
-    #     self.video_player_widget.set_video(path)
-        
-    #     # 1. Đọc kích thước video gốc
-    #     cap = cv2.VideoCapture(path)
-    #     if cap.isOpened():
-    #         self.video_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    #         self.video_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    #         cap.release()
-    #     else:
-    #         self.video_w, self.video_h = 1280, 720
-
-    #     # 2. KHÓA CỨNG SceneRect theo đúng Pixel thực của Video
-    #     self.scene.setSceneRect(0, 0, self.video_w, self.video_h)
-    #     self.video_item.setPos(0, 0)
-    #     self.video_item.setSize(QSizeF(float(self.video_w), float(self.video_h)))
-        
-    #     for item in self.text_items:
-    #         try:
-    #             self.scene.removeItem(item)
-    #         except Exception:
-    #             pass
-    #     self.text_items.clear()
-    #     self.list_overlays.clear()
-    #     self.selected_item = None
-        
-    #     # 3. Fit khung hiển thị Viewport
-    #     self.fit_video_in_view()
-
     def set_video(self, path):
         if not path or not os.path.exists(path):
             return
@@ -229,20 +199,6 @@ class VideoPlayerPreviewWidget(QWidget):
 
         # 3. Fit khung hiển thị Viewport
         self.fit_video_in_view()
-
-    # def set_video(self, path):
-    #     self.player.setSource(QUrl.fromLocalFile(path))
-    #     cap = cv2.VideoCapture(path)
-    #     if cap.isOpened():
-    #         self.video_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    #         self.video_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    #         cap.release()
-    #     else:
-    #         self.video_w, self.video_h = 1280, 720
-
-    #     self.scene.setSceneRect(0, 0, self.video_w, self.video_h)
-    #     self.video_item.setSize(QSizeF(float(self.video_w), float(self.video_h)))
-    #     self.fit_video_in_view()
 
     def reset_video(self):
         self.player.setSource(QUrl())

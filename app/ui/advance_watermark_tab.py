@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import cv2
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QFileDialog
@@ -54,6 +55,13 @@ class AdvanceWatermarkTab(QWidget):
         self.init_ui()
         self.connect_signals()
 
+    def trigger_auto_save(self):
+        main_win = self.window()
+        if hasattr(main_win, "save_project_state"):
+            main_win.save_project_state()
+            current_time = datetime.now().strftime("%H:%M:%S")
+            self.log_message.emit(f"[{current_time}]Project state auto-saved.")
+
     def connect_signals(self):
         self.video_player_widget.scene.selectionChanged.connect(self.on_scene_selection_changed)
         self.text_editor_widget.add_text_overlay.connect(self.add_new_text_overlay)
@@ -71,11 +79,6 @@ class AdvanceWatermarkTab(QWidget):
                 "NVIDIA GPU with CUDA support was not detected on your system. Reverting to CPU mode."
             )
             self.ai_filters_widget.chk_cuda.setChecked(False)
-
-    def trigger_auto_save(self):
-        main_win = self.window()
-        if hasattr(main_win, "save_project_state"):
-            main_win.save_project_state()
 
     def reset_tab(self):
         self.selected_video_path = ""
@@ -120,15 +123,33 @@ class AdvanceWatermarkTab(QWidget):
         self.trigger_auto_save()
 
     def delete_selected_text(self):
-        if not self.selected_item:
+        # Ưu tiên lấy item từ dòng đang chọn ở list_widget
+        current_row = -1
+        if hasattr(self.text_editor_widget, "list_widget"):
+            current_row = self.text_editor_widget.list_widget.currentRow()
+
+        target_item = None
+        if 0 <= current_row < len(self.text_items):
+            target_item = self.text_items[current_row]
+        elif self.selected_item in self.text_items:
+            target_item = self.selected_item
+
+        if not target_item or target_item not in self.text_items:
             QMessageBox.warning(self, "Warning", "Please select a text overlay to delete first.")
             return
-            
-        idx = self.text_items.index(self.selected_item)
+
+        idx = self.text_items.index(target_item)
+        
+        # Xóa khỏi danh sách & UI list
         self.text_items.pop(idx)
         self.text_editor_widget.take_item(idx)
-        
-        self.video_player_widget.scene.removeItem(self.selected_item)
+
+        # Xóa khỏi QGraphicsScene
+        try:
+            self.video_player_widget.scene.removeItem(target_item)
+        except Exception:
+            pass
+
         self.selected_item = None
         self.log_message.emit("Deleted selected text overlay.")
         self.trigger_auto_save()
@@ -136,22 +157,36 @@ class AdvanceWatermarkTab(QWidget):
     def on_scene_selection_changed(self):
         selected = self.video_player_widget.scene.selectedItems()
         text_selected = [i for i in selected if isinstance(i, DraggableTextItem)]
-        
+
         if text_selected:
             item = text_selected[0]
             self.selected_item = item
-            
-            self.text_editor_widget.set_properties(item.toPlainText(), item.font_size, item.angle, item.opacity_val)
-            
+
+            self.text_editor_widget.set_properties(
+                item.toPlainText(), item.font_size, item.angle, item.opacity_val
+            )
+
             if item in self.text_items:
                 idx = self.text_items.index(item)
+                # Chặn bẫy loop signal khi đồng bộ lại dòng chọn
+                self.text_editor_widget.blockSignals(True)
                 self.text_editor_widget.set_selected_row(idx)
+                self.text_editor_widget.blockSignals(False)
 
     def on_list_selection_changed(self, row):
         if 0 <= row < len(self.text_items):
             item = self.text_items[row]
+            self.selected_item = item
+
+            # Chặn signal của Scene để tránh trigger ngược làm đè selected_item
+            self.video_player_widget.scene.blockSignals(True)
             self.video_player_widget.scene.clearSelection()
             item.setSelected(True)
+            self.video_player_widget.scene.blockSignals(False)
+
+            self.text_editor_widget.set_properties(
+                item.toPlainText(), item.font_size, item.angle, item.opacity_val
+            )
 
     def on_control_properties_changed(self):
         if self.selected_item:
@@ -260,7 +295,8 @@ Resolution: {video_w}x{video_h}
         text_states = []
         for item in self.text_items:
             # Lấy vị trí thực tế của item trên QGraphicsScene
-            pos = item.scenePos()
+            # pos = item.scenePos()
+            pos = item.pos() # Sử dụng .pos() để lấy vị trí tương đối trong QGraphicsScene
             
             text_states.append({
                 'text': item.toPlainText(),
@@ -310,6 +346,7 @@ Resolution: {video_w}x{video_h}
                 opacity=t_state.get("opacity", 1.0),
                 font_family=self.app_font_family
             )
+
             item.setPos(t_state.get("pos_x", 50.0), t_state.get("pos_y", 50.0))
             item.setZValue(100 + len(self.text_items))
             
@@ -337,9 +374,3 @@ Resolution: {video_w}x{video_h}
         self.video_player_widget.reset_video()
         self.text_editor_widget.reset_ui()
         self.ai_filters_widget.reset_ui()
-
-    def trigger_auto_save(self):
-        main_win = self.window()
-        if hasattr(main_win, "save_project_state"):
-            main_win.save_project_state()
-            self.log_message.emit("Project state auto-saved.")

@@ -390,6 +390,12 @@ def process_video_ai(
             except Exception:
                 pass
 
+        if detector is not None:
+            detector.close()
+            
+        if segmenter is not None:
+            segmenter.close()
+
 def get_video_fps(input_path: str) -> float:
     """
     Get the FPS of a video file.
