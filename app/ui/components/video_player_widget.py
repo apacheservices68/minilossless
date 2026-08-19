@@ -70,6 +70,17 @@ class VideoPlayerWidget(QWidget):
         main_layout.addWidget(player_group)
         self.setLayout(main_layout)
 
+        # Connect signals
+        self.btn_mute.toggled.connect(self.on_mute_toggled)
+        self.slider_volume.valueChanged.connect(self.on_volume_changed)
+
+    def on_mute_toggled(self, is_muted):
+        self.audio_output.setMuted(is_muted)
+        self.btn_mute.setText("🔇" if is_muted else "🔈")
+
+    def on_volume_changed(self, value):
+        self.audio_output.setVolume(value / 100.0)
+
     def on_slider_pressed(self):
         self.is_slider_moving = True
 

@@ -142,14 +142,14 @@ class AudioWorker(QThread):
             command = ["ffmpeg", "-y", "-i", self.video_file, "-c:v", "copy", "-c:a", "copy", self.output_path]
 
         cmd_str = " ".join(command)
-        self.log.emit(f"[DEBUG] Running FFmpeg command: {cmd_str}")
+        # self.log.emit(f"[DEBUG] Running FFmpeg command: {cmd_str}")
 
         try:
             # Using subprocess.run to wait for completion and capture output
             # This is better for preventing hung processes.
             result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
-            for line in result.stderr.splitlines(): # FFmpeg logs progress to stderr
-                self.log.emit(line.strip())
+            # for line in result.stderr.splitlines(): # FFmpeg logs progress to stderr
+                # self.log.emit(line.strip())
 
         except subprocess.CalledProcessError as e:
             self.log.emit("--- FFmpeg Error Output ---")

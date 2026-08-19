@@ -64,6 +64,11 @@ class MuteControlWidget(QWidget):
         mute_group.setLayout(mute_layout)
         layout.addWidget(mute_group)
 
+        # === Export Button ===
+        self.export_button = QPushButton("🚀 Run Export Process")
+        self.export_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 14px; padding: 10px;")
+        layout.addWidget(self.export_button)
+
         # === Connections ===
         self.mute_all_checkbox.toggled.connect(self._update_ui_states)
         self.smart_mute_checkbox.toggled.connect(self._update_ui_states)

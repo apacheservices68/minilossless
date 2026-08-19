@@ -12,7 +12,7 @@ from app.ui.utils import (
 
 from app.ui.components.audio.player_segment_widget import PlayerSegmentWidget
 from app.ui.components.audio.mute_control_widget import MuteControlWidget
-from app.ui.components.audio.export_log_widget import ExportLogWidget
+
 
 class AudioProcessingTab(QWidget):
     log_message = pyqtSignal(str)
@@ -33,11 +33,9 @@ class AudioProcessingTab(QWidget):
         right_layout = QVBoxLayout(right_widget)
 
         self.mute_controls = MuteControlWidget()
-        self.export_log = ExportLogWidget()
         self.segment_manager = SegmentManagerWidget()
         right_layout.addWidget(self.segment_manager)
         right_layout.addWidget(self.mute_controls)
-        right_layout.addWidget(self.export_log)
         right_layout.addStretch()
 
         # Splitter to make layout adjustable
@@ -60,7 +58,7 @@ class AudioProcessingTab(QWidget):
         video_player.slider_timeline.sliderMoved.connect(self.on_slider_moved)
         
         video_player.btn_play_pause.clicked.connect(self.toggle_play_pause)
-        self.export_log.export_button.clicked.connect(self.start_export)
+        self.mute_controls.export_button.clicked.connect(self.start_export)
 
     def start_export(self):
         if not self.video_path:
@@ -80,8 +78,7 @@ class AudioProcessingTab(QWidget):
         self.log_message.emit(f"Starting export with settings: {settings}")
 
         self.audio_worker = AudioWorker(self.video_path, output_path, settings)
-        self.audio_worker.progress.connect(self.export_log.progress_bar.setValue)
-        self.audio_worker.log.connect(self.export_log.console_log.append)
+        self.audio_worker.log.connect(self.log_message)
         self.audio_worker.finished.connect(lambda: self.log_message.emit("Export finished."))
         self.audio_worker.start()
 

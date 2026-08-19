@@ -133,8 +133,6 @@ class BasicCutTab(QWidget):
         self.video_player_widget.btn_prev_seg.clicked.connect(self.jump_to_prev_segment)
         self.video_player_widget.btn_next_seg.clicked.connect(self.jump_to_next_segment)
         self.video_player_widget.btn_help_close.clicked.connect(lambda: show_close_video_help(self))
-        self.video_player_widget.btn_mute.toggled.connect(self.toggle_mute)
-        self.video_player_widget.slider_volume.valueChanged.connect(self.set_volume)
         
         self.track_control_widget.btn_tracks_status.clicked.connect(self.show_tracks_dialog)
         self.track_control_widget.btn_toggle_audio.clicked.connect(self.toggle_discard_audio)
