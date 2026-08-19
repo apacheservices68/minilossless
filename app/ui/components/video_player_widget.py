@@ -1,13 +1,12 @@
-# app/ui/components/video_player_widget.py
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QSlider, QLabel, QPushButton
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
 
 class VideoPlayerWidget(QWidget):
-    def __init__(self, main_window):
+    def __init__(self, main_window=None, parent=None):
         super().__init__()
         self.main_window = main_window
         self.is_slider_moving = False
@@ -80,3 +79,7 @@ class VideoPlayerWidget(QWidget):
 
     def on_slider_moved(self, position):
         self.player.setPosition(position)
+
+    def load_video(self, video_path):
+        if video_path:
+            self.player.setSource(QUrl.fromLocalFile(video_path))

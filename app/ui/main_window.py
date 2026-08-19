@@ -27,6 +27,7 @@ import app.services.track_metadata_service as track_service
 # from app.services.export_worker import ExportWorker
 from app.services.smartcut_service import SmartCutWorker
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
+from app.ui.components.audio.audio_processing_tab import AudioProcessingTab
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
     handle_player_position_changed, handle_player_duration_changed,
@@ -630,11 +631,12 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.basic_tab = BasicCutTab(self)
         self.advance_tab = AdvanceWatermarkTab(self)
-        
+        self.audio_tab = AudioProcessingTab(self)
         self.advance_tab.log_message.connect(self.log)
-
+        self.audio_tab.log_message.connect(self.log)
         self.tabs.addTab(self.basic_tab, "Basic Cut / Main")
         self.tabs.addTab(self.advance_tab, "Advance Watermark & AI")
+        self.tabs.addTab(self.audio_tab, "Audio Processing")
         main_layout.addWidget(self.tabs, 1)
 
         log_group = QGroupBox("Global Log Console")
@@ -655,6 +657,8 @@ class MainWindow(QMainWindow):
         self.log(f"Loaded active video: {video_path}")
         self.basic_tab.set_video_path_only(video_path)
         self.advance_tab.set_video_path_only(video_path)
+        # add on 08192026 dong bo video player / sync video player
+        self.audio_tab.set_video_path_only(video_path)
         self.basic_tab.load_metadata()
         
         # Step 3: Now, attempt to load the project state.
