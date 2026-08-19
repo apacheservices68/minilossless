@@ -146,3 +146,15 @@ class MuteControlWidget(QWidget):
         self.beep_file_path = file_path
         self.beep_file_label.setText(os.path.basename(file_path))
         self.beep_file_label.setToolTip(file_path)
+
+    def get_settings(self) -> dict:
+        """Returns a dictionary of the current settings."""
+        return {
+            "mute_all": self.mute_all_checkbox.isChecked(),
+            "smart_mute": self.smart_mute_checkbox.isChecked(),
+            "threshold": self.threshold_spinbox.value(),
+            "min_duration": self.duration_spinbox.value(),
+            "padding": self.padding_spinbox.value(),
+            "replace_beep": self.beep_checkbox.isChecked(),
+            "beep_file": self.beep_file_path
+        }

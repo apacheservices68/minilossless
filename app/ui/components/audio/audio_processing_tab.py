@@ -1,8 +1,9 @@
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSplitter
+import os
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFileDialog
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 
-# import utils for player controls
+from app.services.audio_worker import AudioWorker
 from app.ui.components.audio.segment_manager_widget import SegmentManagerWidget
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
@@ -19,6 +20,7 @@ class AudioProcessingTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("AudioProcessingTab")
+        self.video_path = None
 
         # Main layout
         main_layout = QHBoxLayout(self)
@@ -30,12 +32,12 @@ class AudioProcessingTab(QWidget):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
 
-        mute_controls = MuteControlWidget()
-        export_log = ExportLogWidget()
-        segment_manager = SegmentManagerWidget()
-        right_layout.addWidget(segment_manager)
-        right_layout.addWidget(mute_controls)
-        right_layout.addWidget(export_log)
+        self.mute_controls = MuteControlWidget()
+        self.export_log = ExportLogWidget()
+        self.segment_manager = SegmentManagerWidget()
+        right_layout.addWidget(self.segment_manager)
+        right_layout.addWidget(self.mute_controls)
+        right_layout.addWidget(self.export_log)
         right_layout.addStretch()
 
         # Splitter to make layout adjustable
@@ -58,6 +60,30 @@ class AudioProcessingTab(QWidget):
         video_player.slider_timeline.sliderMoved.connect(self.on_slider_moved)
         
         video_player.btn_play_pause.clicked.connect(self.toggle_play_pause)
+        self.export_log.export_button.clicked.connect(self.start_export)
+
+    def start_export(self):
+        if not self.video_path:
+            self.log_message.emit("No video file loaded.")
+            return
+        
+        # Suggest a default output filename
+        base_name = os.path.basename(self.video_path)
+        name, ext = os.path.splitext(base_name)
+        default_filename = os.path.join(os.path.dirname(self.video_path), f"{name}_smart_mute.mp4")
+
+        output_path, _ = QFileDialog.getSaveFileName(self, "Save Muted Video", default_filename, "Video Files (*.mp4)")
+        if not output_path:
+            return
+
+        settings = self.mute_controls.get_settings()
+        self.log_message.emit(f"Starting export with settings: {settings}")
+
+        self.audio_worker = AudioWorker(self.video_path, output_path, settings)
+        self.audio_worker.progress.connect(self.export_log.progress_bar.setValue)
+        self.audio_worker.log.connect(self.export_log.console_log.append)
+        self.audio_worker.finished.connect(lambda: self.log_message.emit("Export finished."))
+        self.audio_worker.start()
 
     def on_playback_state_changed(self, state):
         video_player = self.left_widget.video_player
@@ -87,9 +113,11 @@ class AudioProcessingTab(QWidget):
         self.left_widget.video_player.player.setPosition(position)
 
     def set_video_path_only(self, video_path):
+        self.video_path = video_path
         self.left_widget.set_video(video_path)
 
     def reset_tab(self):
+        self.video_path = None
         video_player = self.left_widget.video_player
         video_player.player.setSource(QUrl())
         video_player.slider_timeline.setRange(0, 0)

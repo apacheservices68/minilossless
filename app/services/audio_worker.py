@@ -1,61 +1,162 @@
 
+import traceback
+import subprocess
+import os
+import tempfile
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.services.audio_service import AudioService
+from app.core import audio_constants as const
 
 class AudioWorker(QThread):
     """Worker thread for handling long-running audio processing tasks."""
 
-    # Signals to update the UI
-    progress_updated = pyqtSignal(int)       # Percentage (0-100)
-    log_message = pyqtSignal(str)          # Log messages
-    processing_finished = pyqtSignal(bool) # True for success, False for failure
+    progress = pyqtSignal(int)
+    log = pyqtSignal(str)
+    finished = pyqtSignal(bool, str) # success, output_path
 
-    def __init__(self, video_file, settings, parent=None):
+    def __init__(self, video_file, output_path, settings, parent=None):
         super().__init__(parent)
         self.video_file = video_file
-        self.settings = settings # Dictionary with UI settings
+        self.output_path = output_path
+        self.settings = settings
         self.audio_service = AudioService()
+        self._is_running = True
+
+    def stop(self):
+        self._is_running = False
 
     def run(self):
         """The entry point for the thread. All processing happens here."""
+        audio_file = None
+        filter_script_path = None
         try:
-            self.log_message.emit("[INFO] Starting audio processing...")
-            self.progress_updated.emit(10)
+            self.log.emit("[INFO] Bắt đầu xử lý âm thanh...")
+            self.progress.emit(5)
 
-            # Step 1: Extract audio
-            self.log_message.emit("[INFO] Extracting audio from video...")
-            audio_file = self.audio_service.extract_audio(self.video_file)
-            if not audio_file:
-                raise Exception("Audio extraction failed.")
-            self.progress_updated.emit(30)
+            mute_all = self.settings.get("mute_all", False)
+            smart_mute = self.settings.get("smart_mute")
 
-            # Step 2: Find speech intervals (if smart mute is enabled)
+            # For mute all, we don't need audio analysis
+            if not mute_all:
+                # Step 1: Extract audio to a temporary file for analysis
+                self.log.emit("[INFO] Đang phân tích luồng âm thanh trong video bằng AI...")
+                audio_file = self.audio_service.extract_audio(self.video_file)
+                if not audio_file or not self._is_running:
+                    raise Exception("Trích xuất âm thanh thất bại hoặc đã bị hủy.")
+            self.progress.emit(25)
+
+            # Step 2: Find speech intervals
             intervals = []
-            if self.settings.get("smart_mute"): 
-                self.log_message.emit("[INFO] Detecting speech intervals with AI...")
+            if smart_mute and audio_file and self._is_running:
                 intervals = self.audio_service.find_speech_intervals(
                     audio_file,
-                    self.settings.get("threshold"),
-                    self.settings.get("duration"),
-                    self.settings.get("padding")
+                    self.settings.get("threshold", const.THRESHOLD_DEFAULT),
+                    self.settings.get("min_duration", const.DURATION_DEFAULT),
+                    self.settings.get("padding", const.PADDING_DEFAULT)
                 )
-                self.log_message.emit(f"[INFO] Detected {len(intervals)} speech segments.")
-            self.progress_updated.emit(60)
+                self.log.emit(f"[INFO] Đã phát hiện {len(intervals)} đoạn giọng nói. Đang tiến hành xử lý và render video đầu ra...")
+            self.progress.emit(50)
 
-            # Step 3: Generate FFmpeg script
-            self.log_message.emit("[INFO] Generating FFmpeg filter script...")
-            # ffmpeg_script = self.audio_service.generate_ffmpeg_filter_script(...)
-            self.progress_updated.emit(80)
+            # Step 3: Get video duration & Generate FFmpeg script
+            if not self._is_running: return
+            total_duration = self.get_video_duration()
+            
+            ffmpeg_script_content = ""
+            if not mute_all:
+                if smart_mute and intervals:
+                    ffmpeg_script_content = self.audio_service.generate_ffmpeg_filter_script(
+                        intervals, total_duration
+                    )
+            
+            self.progress.emit(60)
+            
+            # Write script to temp file if needed
+            if ffmpeg_script_content:
+                 with tempfile.NamedTemporaryFile(mode='w', suffix=".txt", delete=False) as tmp_file:
+                    filter_script_path = tmp_file.name
+                    tmp_file.write(f"[0:a]{ffmpeg_script_content}[a]")
 
             # Step 4: Run FFmpeg to export the final video
-            self.log_message.emit("[INFO] Applying filters and exporting video...")
-            # ... FFmpeg export logic here ...
-            self.progress_updated.emit(100)
-            self.log_message.emit("[SUCCESS] Process completed successfully!")
-            self.processing_finished.emit(True)
+            if not self._is_running: return
+            self.log.emit("[INFO] Đang áp dụng bộ lọc và render video...")
+            self.run_ffmpeg_export(filter_script_path, mute_all)
+            self.progress.emit(100)
+            
+            if self._is_running:
+                self.log.emit(f"[INFO] Đã xuất video thành công: {self.output_path}")
+                self.finished.emit(True, self.output_path)
 
         except Exception as e:
-            self.log_message.emit(f"[ERROR] An error occurred: {e}")
-            self.processing_finished.emit(False)
+            err_msg = traceback.format_exc()
+            self.log.emit(f"[LỖI] Đã xảy ra lỗi:\n{err_msg}")
+            self.finished.emit(False, str(e))
 
+        finally:
+            # Step 5: Clean up temporary files
+            cleaned = False
+            if audio_file and os.path.exists(audio_file):
+                try:
+                    os.remove(audio_file)
+                    cleaned = True
+                except OSError as e:
+                    self.log.emit(f"[CẢNH BÁO] Không thể xóa file tạm {audio_file}: {e}")
+            
+            if filter_script_path and os.path.exists(filter_script_path):
+                try:
+                    os.remove(filter_script_path)
+                    cleaned = True
+                except OSError as e:
+                    self.log.emit(f"[CẢNH BÁO] Không thể xóa file script tạm {filter_script_path}: {e}")
+            
+            if cleaned:
+                self.log.emit("[INFO] Đã dọn dẹp các file tạm an toàn.")
+
+    def get_video_duration(self):
+        command = [
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", self.video_file
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return float(result.stdout)
+
+    def run_ffmpeg_export(self, filter_script_path, mute_all=False):
+        if mute_all:
+            command = [
+                "ffmpeg", "-y", "-i", self.video_file,
+                "-c:v", "copy",
+                "-an",  # No audio
+                self.output_path
+            ]
+        elif filter_script_path:
+            command = [
+                "ffmpeg", "-y", "-i", self.video_file,
+                "-filter_complex_script", filter_script_path,
+                "-map", "0:v",
+                "-map", "[a]",
+                "-c:v", "copy",
+                self.output_path
+            ]
+        else:  # No audio processing needed, just copy the original video
+            self.log.emit("[INFO] No audio processing needed. Copying video stream directly.")
+            command = ["ffmpeg", "-y", "-i", self.video_file, "-c:v", "copy", "-c:a", "copy", self.output_path]
+
+        cmd_str = " ".join(command)
+        self.log.emit(f"[DEBUG] Running FFmpeg command: {cmd_str}")
+
+        try:
+            # Using subprocess.run to wait for completion and capture output
+            # This is better for preventing hung processes.
+            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
+            for line in result.stderr.splitlines(): # FFmpeg logs progress to stderr
+                self.log.emit(line.strip())
+
+        except subprocess.CalledProcessError as e:
+            self.log.emit("--- FFmpeg Error Output ---")
+            # The full stderr is captured, which is useful for debugging
+            self.log.emit(e.stderr)
+            self.log.emit("---------------------------")
+            raise Exception("FFmpeg export failed. See log for details.")
+
+    def __del__(self):
+        self.wait()
