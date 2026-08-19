@@ -13,6 +13,7 @@ __pycache__/
 
 # Ignores build binary artifacts
 assets/bin/
+assets/models/*
 dist/
 build/
 *.spec
