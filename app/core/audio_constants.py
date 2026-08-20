@@ -32,3 +32,5 @@ BEEP_AUDIO_URL = "https://raw.githubusercontent.com/microsoft/Windows-driver-sam
 FFMPEG_EXTRACT_AUDIO_TEMPLATE = '''ffmpeg -i "{input_file}" -vn -ar 16000 -ac 1 "{output_file}"'''
 
 FFMPEG_MUTED_FILTER_STRING = "volume=0"
+VOLUME_MUTE_FILTER_TEMPLATE = "volume=enable=\'between(t,{start},{end})\':volume=0"
+

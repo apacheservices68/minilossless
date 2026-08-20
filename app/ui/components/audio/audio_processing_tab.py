@@ -59,6 +59,31 @@ class AudioProcessingTab(QWidget):
         
         video_player.btn_play_pause.clicked.connect(self.toggle_play_pause)
         self.mute_controls.export_button.clicked.connect(self.start_export)
+        
+        # Connect segment controls
+        video_player = self.left_widget.video_player
+        video_player.btn_set_start.clicked.connect(self.set_segment_start)
+        video_player.btn_set_end.clicked.connect(self.set_segment_end)
+        video_player.btn_prev_seg.clicked.connect(self.prev_segment)
+        video_player.btn_next_seg.clicked.connect(self.next_segment)
+
+    def set_segment_start(self):
+        video_player = self.left_widget.video_player
+        self.segment_manager.set_start_time(video_player.player.position())
+
+    def set_segment_end(self):
+        video_player = self.left_widget.video_player
+        self.segment_manager.set_end_time(video_player.player.position())
+        
+    def prev_segment(self):
+        start_time, _ = self.segment_manager.select_prev_segment()
+        if start_time is not None:
+            self.left_widget.video_player.player.setPosition(start_time)
+            
+    def next_segment(self):
+        start_time, _ = self.segment_manager.select_next_segment()
+        if start_time is not None:
+            self.left_widget.video_player.player.setPosition(start_time)
 
     def start_export(self):
         if not self.video_path:
@@ -75,9 +100,13 @@ class AudioProcessingTab(QWidget):
             return
 
         settings = self.mute_controls.get_settings()
+        segments = self.segment_manager.get_all_segments()
+        settings["segments"] = segments
+        
         self.log_message.emit(f"Starting export with settings: {settings}")
 
         self.audio_worker = AudioWorker(self.video_path, output_path, settings)
+
         self.audio_worker.log.connect(self.log_message)
         self.audio_worker.finished.connect(lambda: self.log_message.emit("Export finished."))
         self.audio_worker.start()

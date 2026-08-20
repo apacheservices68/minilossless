@@ -139,3 +139,22 @@ class AudioService:
         except Exception as e:
             print(f"Could not get duration of {audio_path}: {e}")
             return 0
+
+    def generate_mute_filter_from_segments(self, segments, is_beep):
+        if not segments:
+            return ""
+
+        if is_beep:
+            # This part will be implemented later as per requirements for beep sound.
+            # For now, just return an empty string.
+            conditions = "+".join([f"between(t,{s['start']},{s['end']})" for s in segments])
+            return (
+                f"volume=enable='{conditions}':volume=0,"
+                f"aeval='if({conditions}, sin(1000*2*PI*t)*0.3, val(0))':c=same"
+            )
+        else:
+            return ",".join([
+                const.VOLUME_MUTE_FILTER_TEMPLATE.format(start=s["start"], end=s["end"])
+                for s in segments
+            ])
+

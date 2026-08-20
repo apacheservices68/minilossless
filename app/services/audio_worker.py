@@ -30,57 +30,62 @@ class AudioWorker(QThread):
         """The entry point for the thread. All processing happens here."""
         audio_file = None
         filter_script_path = None
+        audio_filter = None
         try:
             self.log.emit("[INFO] Bắt đầu xử lý âm thanh...")
             self.progress.emit(5)
 
             mute_all = self.settings.get("mute_all", False)
             smart_mute = self.settings.get("smart_mute")
+            segments = self.settings.get("segments", [])
+            is_beep = self.settings.get("replace_beep", False)
 
-            # For mute all, we don't need audio analysis
-            if not mute_all:
-                # Step 1: Extract audio to a temporary file for analysis
+            if segments:
+                # Manual segment muting
+                self.log.emit(f"[INFO] Found {len(segments)} manual segments to mute.")
+                audio_filter = self.audio_service.generate_mute_filter_from_segments(segments, is_beep)
+                self.progress.emit(50)
+            
+            elif not mute_all:
+                # AI Smart Mute processing
                 self.log.emit("[INFO] Đang phân tích luồng âm thanh trong video bằng AI...")
                 audio_file = self.audio_service.extract_audio(self.video_file)
                 if not audio_file or not self._is_running:
                     raise Exception("Trích xuất âm thanh thất bại hoặc đã bị hủy.")
-            self.progress.emit(25)
+                self.progress.emit(25)
 
-            # Step 2: Find speech intervals
-            intervals = []
-            if smart_mute and audio_file and self._is_running:
-                intervals = self.audio_service.find_speech_intervals(
-                    audio_file,
-                    self.settings.get("threshold", const.THRESHOLD_DEFAULT),
-                    self.settings.get("min_duration", const.DURATION_DEFAULT),
-                    self.settings.get("padding", const.PADDING_DEFAULT)
-                )
-                self.log.emit(f"[INFO] Đã phát hiện {len(intervals)} đoạn giọng nói. Đang tiến hành xử lý và render video đầu ra...")
-            self.progress.emit(50)
+                intervals = []
+                if smart_mute and audio_file and self._is_running:
+                    intervals = self.audio_service.find_speech_intervals(
+                        audio_file,
+                        self.settings.get("threshold", const.THRESHOLD_DEFAULT),
+                        self.settings.get("min_duration", const.DURATION_DEFAULT),
+                        self.settings.get("padding", const.PADDING_DEFAULT)
+                    )
+                    self.log.emit(f"[INFO] Đã phát hiện {len(intervals)} đoạn giọng nói. Đang tiến hành xử lý và render video đầu ra...")
+                self.progress.emit(50)
 
-            # Step 3: Get video duration & Generate FFmpeg script
-            if not self._is_running: return
-            total_duration = self.get_video_duration()
-            
-            ffmpeg_script_content = ""
-            if not mute_all:
+                if not self._is_running: return
+                total_duration = self.get_video_duration()
+                
+                ffmpeg_script_content = ""
                 if smart_mute and intervals:
                     ffmpeg_script_content = self.audio_service.generate_ffmpeg_filter_script(
                         intervals, total_duration
                     )
+                
+                if ffmpeg_script_content:
+                    with tempfile.NamedTemporaryFile(mode='w', suffix=".txt", delete=False) as tmp_file:
+                        filter_script_path = tmp_file.name
+                        tmp_file.write(f"[0:a]{ffmpeg_script_content}[a]")
+
             
             self.progress.emit(60)
-            
-            # Write script to temp file if needed
-            if ffmpeg_script_content:
-                 with tempfile.NamedTemporaryFile(mode='w', suffix=".txt", delete=False) as tmp_file:
-                    filter_script_path = tmp_file.name
-                    tmp_file.write(f"[0:a]{ffmpeg_script_content}[a]")
 
             # Step 4: Run FFmpeg to export the final video
             if not self._is_running: return
             self.log.emit("[INFO] Đang áp dụng bộ lọc và render video...")
-            self.run_ffmpeg_export(filter_script_path, mute_all)
+            self.run_ffmpeg_export(filter_script_path, mute_all, audio_filter)
             self.progress.emit(100)
             
             if self._is_running:
@@ -120,12 +125,19 @@ class AudioWorker(QThread):
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         return float(result.stdout)
 
-    def run_ffmpeg_export(self, filter_script_path, mute_all=False):
+    def run_ffmpeg_export(self, filter_script_path, mute_all=False, audio_filter=None):
         if mute_all:
             command = [
                 "ffmpeg", "-y", "-i", self.video_file,
                 "-c:v", "copy",
                 "-an",  # No audio
+                self.output_path
+            ]
+        elif audio_filter:
+             command = [
+                "ffmpeg", "-y", "-i", self.video_file,
+                "-c:v", "copy",
+                "-af", audio_filter,
                 self.output_path
             ]
         elif filter_script_path:
@@ -142,6 +154,7 @@ class AudioWorker(QThread):
             command = ["ffmpeg", "-y", "-i", self.video_file, "-c:v", "copy", "-c:a", "copy", self.output_path]
 
         cmd_str = " ".join(command)
+
         # self.log.emit(f"[DEBUG] Running FFmpeg command: {cmd_str}")
 
         try:

@@ -20,6 +20,35 @@ def check_cuda_support():
         
     return False
 
+def format_ms_to_timecode(ms: int) -> str:
+    if ms is None or ms < 0:
+        return "00:00:00.000"
+    seconds = ms / 1000.0
+    hrs = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int(ms % 1000)
+    return f"{hrs:02d}:{mins:02d}:{secs:02d}.{millis:03d}"
+
+def timecode_to_ms(timecode_str: str) -> int:
+    if not timecode_str or timecode_str == "00:00:00.000":
+        return 0
+    try:
+        # Tách phần giờ:phút:giây và miligiây
+        parts = timecode_str.strip().split(":")
+        if len(parts) == 3:
+            hrs = int(parts[0])
+            mins = int(parts[1])
+            secs_parts = parts[2].split(".")
+            secs = int(secs_parts[0])
+            millis = int(secs_parts[1]) if len(secs_parts) > 1 else 0
+            
+            total_ms = (hrs * 3600 + mins * 60 + secs) * 1000 + millis
+            return total_ms
+    except Exception:
+        pass
+    return 0
+
 def calculate_relative_text_overlays(text_items, video_item):
     if not video_item:
         return []
