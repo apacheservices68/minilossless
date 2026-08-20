@@ -172,6 +172,13 @@ class SegmentManagerWidget(QWidget):
         self.table_segments.selectRow(new_row)
         return self.get_selected_segment_times()
 
+    def reset_ui(self):
+        self.table_segments.setRowCount(0)
+        self.txt_manual_start.setText("00:00:00.000")
+        self.txt_manual_end.setText("00:00:00.000")
+        self.selected_segment_index = -1
+        self.table_segments.clearSelection()
+
     def select_next_segment(self):
         if self.table_segments.rowCount() == 0: return None
         current_row = self.table_segments.currentRow()

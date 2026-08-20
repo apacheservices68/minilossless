@@ -89,8 +89,7 @@ class AudioProcessingTab(QWidget):
         if not self.video_path:
             self.log_message.emit("No video file loaded.")
             return
-        
-        # Suggest a default output filename
+
         base_name = os.path.basename(self.video_path)
         name, ext = os.path.splitext(base_name)
         default_filename = os.path.join(os.path.dirname(self.video_path), f"{name}_smart_mute.mp4")
@@ -108,8 +107,11 @@ class AudioProcessingTab(QWidget):
         self.audio_worker = AudioWorker(self.video_path, output_path, settings)
 
         self.audio_worker.log.connect(self.log_message)
-        self.audio_worker.finished.connect(lambda: self.log_message.emit("Export finished."))
+        self.audio_worker.finished.connect(self.on_export_finished)
         self.audio_worker.start()
+
+    def on_export_finished(self):
+        self.log_message.emit("Export finished.")
 
     def on_playback_state_changed(self, state):
         video_player = self.left_widget.video_player
@@ -142,11 +144,8 @@ class AudioProcessingTab(QWidget):
         self.video_path = video_path
         self.left_widget.set_video(video_path)
 
-    def reset_tab(self):
+    def reset_ui(self):
         self.video_path = None
-        video_player = self.left_widget.video_player
-        video_player.player.setSource(QUrl())
-        video_player.slider_timeline.setRange(0, 0)
-        video_player.slider_timeline.setValue(0)
-        video_player.lbl_time.setText("00:00:00.000 / 00:00:00.000")
-        video_player.btn_play_pause.setText("Play")
+        self.left_widget.video_player.reset_player()
+        self.segment_manager.reset_ui()
+        self.mute_controls.reset_ui()

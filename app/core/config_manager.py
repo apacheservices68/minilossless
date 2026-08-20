@@ -38,6 +38,11 @@ def reset_workspace(main_window):
     if hasattr(main_window, 'metadata_tab'):
         main_window.metadata_tab.reset_tab()
 
+    # 5. Reset AudioProcessingTab
+    if hasattr(main_window, 'audio_tab'):
+        main_window.audio_tab.reset_ui()
+
+
 def save_project_state(main_window):
     """
     Save the current project state of the MainWindow to a JSON file.

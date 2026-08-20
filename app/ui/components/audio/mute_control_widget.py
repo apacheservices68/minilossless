@@ -163,3 +163,19 @@ class MuteControlWidget(QWidget):
             "replace_beep": self.beep_checkbox.isChecked(),
             "beep_file": self.beep_file_path
         }
+    
+    def reset_ui(self):
+        self.mute_all_checkbox.setChecked(False)
+        self.smart_mute_checkbox.setChecked(False)
+        self.beep_checkbox.setChecked(False)
+
+        self.threshold_slider.setValue(int(const.THRESHOLD_DEFAULT * 1000))
+        self.duration_slider.setValue(int(const.DURATION_DEFAULT * 1000))
+        self.padding_slider.setValue(int(const.PADDING_DEFAULT * 1000))
+
+        self.beep_file_path = None
+        self.beep_file_label.setText("No file selected.")
+        self.beep_file_label.setToolTip("")
+
+        self._update_ui_states()
+

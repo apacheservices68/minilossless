@@ -657,7 +657,7 @@ class MainWindow(QMainWindow):
         self.advance_tab.set_video_path_only(video_path)
         # add on 08192026 dong bo video player / sync video player
         self.audio_tab.set_video_path_only(video_path)
-        self.basic_tab.load_metadata()
+        self.basic_tab.load_metadata
         
         # Step 3: Now, attempt to load the project state.
         self.load_project_state(video_path)

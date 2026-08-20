@@ -94,3 +94,10 @@ class VideoPlayerWidget(QWidget):
     def load_video(self, video_path):
         if video_path:
             self.player.setSource(QUrl.fromLocalFile(video_path))
+
+    def reset_player(self):
+        self.player.pause()
+        self.player.setSource(QUrl())
+        self.slider_timeline.setValue(0)
+        self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
+        self.btn_play_pause.setText("Play")
