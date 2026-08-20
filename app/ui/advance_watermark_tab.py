@@ -18,6 +18,7 @@ from app.core.watermark_constants import (
 
 class AdvanceWatermarkTab(QWidget):
     log_message = pyqtSignal(str)
+    auto_save_needed = pyqtSignal()
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -56,11 +57,7 @@ class AdvanceWatermarkTab(QWidget):
         self.connect_signals()
 
     def trigger_auto_save(self):
-        main_win = self.window()
-        if hasattr(main_win, "save_project_state"):
-            main_win.save_project_state()
-            current_time = datetime.now().strftime("%H:%M:%S")
-            self.log_message.emit(f"[{current_time}]Project state auto-saved.")
+        self.auto_save_needed.emit()
 
     def connect_signals(self):
         self.video_player_widget.scene.selectionChanged.connect(self.on_scene_selection_changed)

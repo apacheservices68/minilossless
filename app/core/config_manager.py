@@ -91,7 +91,8 @@ def save_project_state(main_window):
         "bg_blur": {
             "enabled": ai_filters.get("bg_blur", False),
             "amount": ai_filters.get("bg_blur_strength") if ai_filters.get("bg_blur") else None
-        }
+        },
+        "audio_processing": main_window.audio_tab.get_state()
     }
     
     try:
@@ -160,6 +161,11 @@ def load_project_state(main_window, video_path):
     
     # 3. Khôi phục toàn bộ UI advance_tab bằng 1 hàm duy nhất
     main_window.advance_tab.set_state(adv_adapter_state)
+
+    # 4. Restore AudioProcessingTab
+    audio_state = data.get("audio_processing")
+    if audio_state and hasattr(main_window, 'audio_tab'):
+        main_window.audio_tab.set_state(audio_state)
 
 # def load_project_state(main_window, video_path):
 #     """

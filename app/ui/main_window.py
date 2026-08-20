@@ -632,6 +632,13 @@ class MainWindow(QMainWindow):
         self.audio_tab = AudioProcessingTab(self)
         self.advance_tab.log_message.connect(self.log)
         self.audio_tab.log_message.connect(self.log)
+
+        # Connect auto-save signals
+        if hasattr(self.advance_tab, 'auto_save_needed'):
+            self.advance_tab.auto_save_needed.connect(self.save_project_state)
+        if hasattr(self.audio_tab, 'auto_save_needed'):
+            self.audio_tab.auto_save_needed.connect(self.save_project_state)
+
         self.tabs.addTab(self.basic_tab, "Basic Cut / Main")
         self.tabs.addTab(self.advance_tab, "Advance Watermark & AI")
         self.tabs.addTab(self.audio_tab, "Audio Processing")

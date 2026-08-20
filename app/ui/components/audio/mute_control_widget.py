@@ -8,6 +8,8 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from app.core import audio_constants as const
 
 class MuteControlWidget(QWidget):
+    state_changed = pyqtSignal()
+    
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -74,6 +76,13 @@ class MuteControlWidget(QWidget):
         self.smart_mute_checkbox.toggled.connect(self._update_ui_states)
         self.beep_checkbox.toggled.connect(self._update_ui_states)
         self.browse_button.clicked.connect(self._browse_beep_file)
+
+        self.mute_all_checkbox.stateChanged.connect(self.state_changed.emit)
+        self.smart_mute_checkbox.stateChanged.connect(self.state_changed.emit)
+        self.beep_checkbox.stateChanged.connect(self.state_changed.emit)
+        self.threshold_spinbox.valueChanged.connect(self.state_changed.emit)
+        self.duration_spinbox.valueChanged.connect(self.state_changed.emit)
+        self.padding_spinbox.valueChanged.connect(self.state_changed.emit)
 
         # Initial state setup
         self._update_ui_states()
@@ -151,6 +160,7 @@ class MuteControlWidget(QWidget):
         self.beep_file_path = file_path
         self.beep_file_label.setText(os.path.basename(file_path))
         self.beep_file_label.setToolTip(file_path)
+        self.state_changed.emit()
 
     def get_settings(self) -> dict:
         """Returns a dictionary of the current settings."""
@@ -177,5 +187,26 @@ class MuteControlWidget(QWidget):
         self.beep_file_label.setText("No file selected.")
         self.beep_file_label.setToolTip("")
 
+        self._update_ui_states()
+
+    def set_settings(self, settings: dict):
+        """Sets the UI controls from a dictionary of settings."""
+        self.mute_all_checkbox.setChecked(settings.get("mute_all", False))
+        self.smart_mute_checkbox.setChecked(settings.get("smart_mute", False))
+        self.threshold_spinbox.setValue(settings.get("threshold", const.THRESHOLD_DEFAULT))
+        self.duration_spinbox.setValue(settings.get("min_duration", const.DURATION_DEFAULT))
+        self.padding_spinbox.setValue(settings.get("padding", const.PADDING_DEFAULT))
+        self.beep_checkbox.setChecked(settings.get("replace_beep", False))
+
+        beep_file = settings.get("beep_file")
+        if beep_file and os.path.exists(beep_file):
+            self.beep_file_path = beep_file
+            self.beep_file_label.setText(os.path.basename(beep_file))
+            self.beep_file_label.setToolTip(beep_file)
+        else:
+            self.beep_file_path = None
+            self.beep_file_label.setText("No file selected.")
+            self.beep_file_label.setToolTip("")
+            
         self._update_ui_states()
 

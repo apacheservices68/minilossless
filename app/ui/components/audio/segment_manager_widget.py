@@ -2,10 +2,12 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QLineEdit, 
     QPushButton, QLabel, QAbstractItemView, QTableWidgetItem
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from app.core.helpers import format_ms_to_timecode, timecode_to_ms
 
 class SegmentManagerWidget(QWidget):
+    state_changed = pyqtSignal()
+
     def __init__(self, main_window=None, parent=None):
         super().__init__(parent)
         self.main_window = main_window
@@ -115,6 +117,7 @@ class SegmentManagerWidget(QWidget):
         self.txt_manual_start.clear()
         self.txt_manual_end.clear()
         self.table_segments.selectRow(row_position)
+        self.state_changed.emit()
 
     def update_selected_segment(self):
         if self.selected_segment_index < 0:
@@ -137,6 +140,7 @@ class SegmentManagerWidget(QWidget):
         self.table_segments.setItem(self.selected_segment_index, 1, QTableWidgetItem(format_ms_to_timecode(start_ms)))
         self.table_segments.setItem(self.selected_segment_index, 2, QTableWidgetItem(format_ms_to_timecode(end_ms)))
         self.table_segments.setItem(self.selected_segment_index, 3, QTableWidgetItem(format_ms_to_timecode(duration_ms)))
+        self.state_changed.emit()
 
     def delete_selected_segment(self):
         if self.selected_segment_index < 0:
@@ -152,6 +156,7 @@ class SegmentManagerWidget(QWidget):
         self.txt_manual_start.clear()
         self.txt_manual_end.clear()
         self.table_segments.clearSelection()
+        self.state_changed.emit()
 
     def get_selected_segment_times(self):
         if self.selected_segment_index < 0 or self.selected_segment_index >= self.table_segments.rowCount():
@@ -178,6 +183,21 @@ class SegmentManagerWidget(QWidget):
         self.txt_manual_end.setText("00:00:00.000")
         self.selected_segment_index = -1
         self.table_segments.clearSelection()
+
+    def set_all_segments(self, segments):
+        self.table_segments.setRowCount(0)
+        for i, seg in enumerate(segments):
+            start_ms = int(seg["start"] * 1000)
+            end_ms = int(seg["end"] * 1000)
+            duration_ms = end_ms - start_ms
+
+            row_position = self.table_segments.rowCount()
+            self.table_segments.insertRow(row_position)
+            self.table_segments.setItem(row_position, 0, QTableWidgetItem(str(i + 1)))
+            self.table_segments.setItem(row_position, 1, QTableWidgetItem(format_ms_to_timecode(start_ms)))
+            self.table_segments.setItem(row_position, 2, QTableWidgetItem(format_ms_to_timecode(end_ms)))
+            self.table_segments.setItem(row_position, 3, QTableWidgetItem(format_ms_to_timecode(duration_ms)))
+        self.state_changed.emit()
 
     def select_next_segment(self):
         if self.table_segments.rowCount() == 0: return None

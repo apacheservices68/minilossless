@@ -16,6 +16,7 @@ from app.ui.components.audio.mute_control_widget import MuteControlWidget
 
 class AudioProcessingTab(QWidget):
     log_message = pyqtSignal(str)
+    auto_save_needed = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -66,6 +67,12 @@ class AudioProcessingTab(QWidget):
         video_player.btn_set_end.clicked.connect(self.set_segment_end)
         video_player.btn_prev_seg.clicked.connect(self.prev_segment)
         video_player.btn_next_seg.clicked.connect(self.next_segment)
+
+        self.mute_controls.state_changed.connect(self.trigger_auto_save)
+        self.segment_manager.state_changed.connect(self.trigger_auto_save)
+
+    def trigger_auto_save(self):
+        self.auto_save_needed.emit()
 
     def set_segment_start(self):
         video_player = self.left_widget.video_player
@@ -149,3 +156,17 @@ class AudioProcessingTab(QWidget):
         self.left_widget.video_player.reset_player()
         self.segment_manager.reset_ui()
         self.mute_controls.reset_ui()
+
+    def get_state(self):
+        state = self.mute_controls.get_settings()
+        state["segments"] = self.segment_manager.get_all_segments()
+        return state
+
+    def set_state(self, state):
+        if not state or not isinstance(state, dict):
+            return
+
+        self.mute_controls.set_settings(state)
+
+        segments = state.get("segments", [])
+        self.segment_manager.set_all_segments(segments)
