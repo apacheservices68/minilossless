@@ -41,6 +41,10 @@ from app.ui.components.track_control_widget import TrackControlWidget
 from app.ui.components.snapshot_widget import SnapshotWidget
 from app.ui.components.segments_widget import SegmentsWidget
 
+from app.core.config_manager import save_project_state
+from app.core.config_manager import load_project_state
+from app.core.config_manager import reset_workspace
+
 class BasicCutTab(QWidget):
     def __init__(self, main_window):
         super().__init__()
@@ -679,16 +683,13 @@ class MainWindow(QMainWindow):
         self.reset_workspace()
 
     def reset_workspace(self):
-        from app.core.config_manager import reset_workspace
         reset_workspace(self)
         self.log("Workspace reset. Closing player and clearing state.")
 
     def save_project_state(self):
-        from app.core.config_manager import save_project_state
         save_project_state(self)
 
     def load_project_state(self, video_path):
-        from app.core.config_manager import load_project_state
         load_project_state(self, video_path)
 
     def log(self, message: str):

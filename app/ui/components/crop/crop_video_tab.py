@@ -29,27 +29,35 @@ class CropVideoTab(QWidget):
         # Left Layout (Rulers and Player)
         left_container = QWidget()
         left_grid = QGridLayout(left_container)
-        left_grid.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         left_grid.setSpacing(0)
+        left_grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
         self.h_ruler = RulerWidget(Qt.Orientation.Horizontal)
         self.v_ruler = RulerWidget(Qt.Orientation.Vertical)
-        
+
         self.video_container = VideoContainer()
         player_stack = QWidget()
         player_layout = QStackedLayout(player_stack)
-        player_layout.setContentsMargins(0,0,0,0)
-        player_layout.addWidget(self.video_player_widget)
+        player_layout.setContentsMargins(0, 0, 0, 0)
+        player_layout.addWidget(self.video_player_widget.video_widget)
         self.overlay_widget = CropOverlayWidget(player_stack)
         player_layout.addWidget(self.overlay_widget)
         self.video_container.set_video_widget(player_stack)
 
+        # Add các widget vào Grid chuẩn vị trí
         left_grid.addWidget(QWidget(), 0, 0)  # Corner widget
         left_grid.addWidget(self.h_ruler, 0, 1)
         left_grid.addWidget(self.v_ruler, 1, 0)
         left_grid.addWidget(self.video_container, 1, 1)
-        left_grid.addLayout(self.create_player_controls(), 2, 1) # Add player controls below
+        
+        # Nhét nút điều khiển xuống dưới cùng của Grid (Hàng 2, Cột 1)
+        left_grid.addLayout(self.create_player_controls(), 2, 1)
 
+        # CHIÊU CHỐNG MẸO & XÓA VIỀN ĐEN:
+        # Ép hàng 1 (Video) ưu tiên mở rộng, hàng 2 (Nút) cố định kích thước
+        # left_grid.setRowStretch(1, 1)
+        # left_grid.setRowStretch(2, 0)
 
         # Right Layout (Controls)
         right_layout_widget = self.create_right_layout()
@@ -218,11 +226,16 @@ class CropVideoTab(QWidget):
             info = get_media_info(file_path)
             video_stream = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
             if video_stream:
-                video_width = video_stream["width"]
-                video_height = video_stream["height"]
-                aspect_ratio = video_width / video_height
+                video_width = int(video_stream["width"])
+                video_height = int(video_stream["height"])
+                aspect_ratio = video_width / float(video_height)
+
+                # TRUYỀN CẢ 2 THƯỚC RULER CHO CONTAINER
+                self.video_container.set_h_ruler(self.h_ruler)
+                self.video_container.set_v_ruler(self.v_ruler)
 
                 self.video_container.set_aspect_ratio(aspect_ratio)
+
                 self.h_ruler.set_max_value(video_width)
                 self.v_ruler.set_max_value(video_height)
 
