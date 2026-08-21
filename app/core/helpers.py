@@ -1,3 +1,4 @@
+import json
 import os
 import cv2
 import math
@@ -19,6 +20,22 @@ def check_cuda_support():
         pass
         
     return False
+
+def get_media_info(file_path):
+    """Lấy thông tin video resolution dùng ffprobe trực tiếp"""
+    cmd = [
+        "ffprobe",
+        "-v", "quiet",
+        "-print_format", "json",
+        "-show_streams",
+        file_path
+    ]
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        return json.loads(result.stdout)
+    except Exception as e:
+        print(f"Error running ffprobe: {e}")
+        return {"streams": []}
 
 def format_ms_to_timecode(ms: int) -> str:
     if ms is None or ms < 0:
