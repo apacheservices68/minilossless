@@ -1,22 +1,20 @@
-from PyQt6.QtWidgets import QWidget, QSizePolicy, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QSizePolicy
 from PyQt6.QtCore import QSize, Qt
+
+from .crop_overlay_widget import CropOverlayWidget
 
 class VideoContainer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.video_widget = None
+        self.overlay_widget = None
         self.aspect_ratio = 16 / 9.0
         self.h_ruler = None
         self.v_ruler = None
         self.PREVIEW_DEFAULT = 720
         self.PREVIEW_MAX_W = 1280
         self.PREVIEW_MAX_H = 720
-        
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.setLayout(layout)
+        self.setContentsMargins(0, 0, 0, 0)
 
     def set_h_ruler(self, ruler):
         self.h_ruler = ruler
@@ -24,17 +22,27 @@ class VideoContainer(QWidget):
     def set_v_ruler(self, ruler):
         self.v_ruler = ruler
 
-    def set_video_widget(self, widget):
+    def set_video_widget(self, video_widget, overlay_widget):
         if self.video_widget:
-            self.layout().removeWidget(self.video_widget)
             self.video_widget.setParent(None)
+        if self.overlay_widget:
+            self.overlay_widget.setParent(None)
 
-        self.video_widget = widget
-        self.layout().addWidget(self.video_widget)
-        
+        self.video_widget = video_widget
+        self.overlay_widget = overlay_widget
+
+        self.video_widget.setParent(self)
+        self.overlay_widget.setParent(self)
+
+        # Bật cờ nền trong suốt bắt buộc của PyQt6 để vẽ đè lên video
+        self.overlay_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.overlay_widget.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+
         # Bắt buộc giữ tỷ lệ chuẩn gốc (Chống méo mặt)
         self._apply_keep_aspect_ratio(self.video_widget)
         self._update_player_layout()
+        
+        self.overlay_widget.raise_()
 
     def _apply_keep_aspect_ratio(self, target_widget):
         if hasattr(target_widget, 'setAspectRatioMode'):
@@ -45,40 +53,27 @@ class VideoContainer(QWidget):
 
     def set_aspect_ratio(self, ratio):
         self.aspect_ratio = ratio if ratio > 0 else 1.0
-        
-        # TỰ ĐỘNG TÍNH TOÁN THEO CHIỀU DÀI HƠN
-        # Nếu là video ngang (Ratio >= 1): Ép Max Width = 800px
-        # Nếu là video dọc (Ratio < 1):  Ép Max Height = 800px
-        # if self.aspect_ratio >= 1.0:
-        #     self.PREVIEW_MAX_W = 800
-        #     self.PREVIEW_MAX_H = int(800 / self.aspect_ratio)
-        # else:
-        #     self.PREVIEW_MAX_H = 800
-        #     self.PREVIEW_MAX_W = int(800 * self.aspect_ratio)
-            
         self._update_player_layout()
 
     def _update_player_layout(self):
         if not self.video_widget:
             return
 
-        # 1. Tính toán kích thước hiển thị THỰC TẾ
+        # 1. Calculate the REAL display size
         target_w = self.PREVIEW_MAX_W
         target_h = int(target_w / self.aspect_ratio)
 
-        # Nếu là video dọc (9:16)
+        # If it's a vertical video (9:16)
         if target_h > self.PREVIEW_MAX_H:
             target_h = self.PREVIEW_MAX_H
             target_w = int(target_h * self.aspect_ratio)
 
-        # 2. Key to eliminating black borders: Force both Stack Container and Child Widget sizes
-        self.video_widget.setFixedSize(target_w, target_h)
-
-        # Ensure any child widgets (like the overlay) are resized correctly
-        if hasattr(self.video_widget, 'children'):
-            for child in self.video_widget.children():
-                if isinstance(child, QWidget) and child is not self.video_widget:
-                    child.setGeometry(0, 0, target_w, target_h)
+        # 2. Key to eliminating black borders: Force both container and child widget sizes
+        self.video_widget.setGeometry(0, 0, target_w, target_h)
+        if self.overlay_widget:
+            self.overlay_widget.setGeometry(0, 0, target_w, target_h)
+            self.overlay_widget.raise_()  # Ép overlay luôn nằm trên cùng Z-order
+            self.overlay_widget.update()  # Kích hoạt vẽ lại paintEvent
 
         self.setFixedSize(target_w, target_h)
 

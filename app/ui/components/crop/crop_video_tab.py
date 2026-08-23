@@ -17,6 +17,9 @@ class CropVideoTab(QWidget):
 
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
+        # self.setWindowFlags(Qt.WindowType.SubWindow | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setMouseTracking(True)
         self.main_window = main_window
         self.video_player_widget = VideoPlayerWidget()
         self.overlay_widget = None
@@ -38,22 +41,11 @@ class CropVideoTab(QWidget):
         self.h_ruler = RulerWidget(Qt.Orientation.Horizontal)
         self.v_ruler = RulerWidget(Qt.Orientation.Vertical)
 
-        # Container for video player and overlay
-        player_stack = QWidget()
-        # Use a layout for the stack to hold the player and overlay
-        stack_layout = QVBoxLayout(player_stack)
-        stack_layout.setContentsMargins(0, 0, 0, 0)
-        player_stack.setLayout(stack_layout)
-
-        # Add video player widget to the stack
-        stack_layout.addWidget(self.video_player_widget.video_widget)
-
-        # Create and add the overlay widget on top of the player
-        self.overlay_widget = CropOverlayWidget(player_stack)
-
-        # Set the container for the video
+        # Container for the video player and overlay
         self.video_container = VideoContainer()
-        self.video_container.set_video_widget(player_stack)
+        self.overlay_widget = CropOverlayWidget()
+        self.overlay_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.video_container.set_video_widget(self.video_player_widget.video_widget, self.overlay_widget)
 
         # Add các widget vào Grid chuẩn vị trí
         left_grid.addWidget(QWidget(), 0, 0)  # Corner widget
@@ -204,11 +196,6 @@ class CropVideoTab(QWidget):
         # QMediaPlayer volume is float 0.0-1.0
         self.video_player_widget.player.audioOutput().setVolume(value / 100.0)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if self.overlay_widget and self.video_container and self.video_container.video_widget:
-            self.overlay_widget.resize(self.video_container.video_widget.size())
-            self.overlay_widget.raise_()
 
     def set_video_path_only(self, file_path):
         self.log_message.emit(f"Crop tab received video: {file_path}")
@@ -220,6 +207,8 @@ class CropVideoTab(QWidget):
                 video_width = int(video_stream["width"])
                 video_height = int(video_stream["height"])
                 aspect_ratio = video_width / float(video_height)
+
+                self.overlay_widget.set_video_resolution(video_width, video_height)
 
                 self.video_container.set_h_ruler(self.h_ruler)
                 self.video_container.set_v_ruler(self.v_ruler)
@@ -234,7 +223,16 @@ class CropVideoTab(QWidget):
                 self.height_spinbox.setRange(0, video_height)
 
                 # Set initial crop rectangle to the full video size
-                self.overlay_widget.set_crop_rect(QRect(0, 0, video_width, video_height))
+                # self.overlay_widget.set_crop_rect(QRect(0, 0, video_width, video_height))
+                # Mặc định tạo khung crop bằng 60% kích thước video ở chính giữa
+                crop_w = int(video_width * 0.6)
+                crop_h = int(video_height * 0.6)
+                crop_x = int((video_width - crop_w) / 2)
+                crop_y = int((video_height - crop_h) / 2)
+                initial_rect = QRect(crop_x, crop_y, crop_w, crop_h)
+
+                self.overlay_widget.set_crop_rect(initial_rect)
+                self.update_spinboxes_from_rect(initial_rect)
 
         except Exception as e:
             self.log_message.emit(f"Error getting media info: {e}")

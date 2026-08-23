@@ -17,6 +17,10 @@ class VideoPlayerWidget(QWidget):
         player_layout = QVBoxLayout()
 
         self.video_widget = QVideoWidget()
+        # Thêm 2 dòng này để ép QVideoWidget render chung lớp với Overlay
+        self.video_widget.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors, True)
+        self.video_widget.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, False)
+        
         self.video_widget.setMinimumHeight(480)
         self.video_widget.setStyleSheet("background-color: black;")
         player_layout.addWidget(self.video_widget, 1)
