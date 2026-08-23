@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QRect
 
 from app.core.helpers import get_media_info
+from app.ui.components.crop.player_control_widget import PlayerControlsWidget
 from app.ui.utils import get_formatted_time_str, toggle_play_pause, handle_player_position_changed, handle_player_duration_changed
 from app.ui.components.video_player_widget import VideoPlayerWidget
 from .crop_overlay_widget import CropOverlayWidget
@@ -20,6 +21,7 @@ class CropVideoTab(QWidget):
         self.video_player_widget = VideoPlayerWidget()
         self.overlay_widget = None
         self.video_container = None
+        self.controls_widget = None
         self.init_ui()
         self.connect_signals()
 
@@ -50,11 +52,16 @@ class CropVideoTab(QWidget):
         left_grid.addWidget(self.h_ruler, 0, 1)
         left_grid.addWidget(self.v_ruler, 1, 0)
         left_grid.addWidget(self.video_container, 1, 1)
+
+        # Khởi tạo widget controls riêng
+        self.player_controls = PlayerControlsWidget()
+
+        # Thêm vào left_grid ở hàng 2
+        left_grid.addWidget(self.player_controls, 2, 1)
         
         # Nhét nút điều khiển xuống dưới cùng của Grid (Hàng 2, Cột 1)
-        left_grid.addLayout(self.create_player_controls(), 2, 1)
+        # left_grid.addLayout(self.create_player_controls(), 2, 1)
 
-        # CHIÊU CHỐNG MẸO & XÓA VIỀN ĐEN:
         # Ép hàng 1 (Video) ưu tiên mở rộng, hàng 2 (Nút) cố định kích thước
         # left_grid.setRowStretch(1, 1)
         # left_grid.setRowStretch(2, 0)
@@ -117,33 +124,6 @@ class CropVideoTab(QWidget):
 
         return main_container
 
-    def create_player_controls(self):
-        # Player Controls Layout
-        player_controls_layout = QHBoxLayout()
-        player_controls_layout.setContentsMargins(0, 5, 0, 0)
-
-        self.btn_play_pause = QPushButton("Play")
-        self.slider_timeline = QSlider(Qt.Orientation.Horizontal)
-        self.lbl_time = QLabel("00:00:00.000 / 00:00:00.000")
-        
-        # Mute Button (Simplified)
-        self.btn_mute = QPushButton("Mute")
-        self.btn_mute.setCheckable(True)
-
-        # Volume Slider (Simplified)
-        self.slider_volume = QSlider(Qt.Orientation.Horizontal)
-        self.slider_volume.setRange(0, 100)
-        self.slider_volume.setValue(100)
-        self.slider_volume.setMaximumWidth(100)
-
-        player_controls_layout.addWidget(self.btn_play_pause)
-        player_controls_layout.addWidget(self.slider_timeline)
-        player_controls_layout.addWidget(self.lbl_time)
-        player_controls_layout.addWidget(self.btn_mute)
-        player_controls_layout.addWidget(self.slider_volume)
-
-        return player_controls_layout
-
     def connect_signals(self):
         # Crop signals
         self.overlay_widget.crop_rect_changed.connect(self.update_spinboxes_from_rect)
@@ -157,10 +137,10 @@ class CropVideoTab(QWidget):
         self.video_player_widget.player.durationChanged.connect(self.on_player_duration_changed)
         self.video_player_widget.player.playbackStateChanged.connect(self.on_playback_state_changed)
 
-        self.slider_timeline.sliderMoved.connect(self.on_slider_moved)
-        self.btn_play_pause.clicked.connect(self.toggle_play_pause)
-        self.btn_mute.toggled.connect(self.on_mute_toggled)
-        self.slider_volume.valueChanged.connect(self.on_volume_changed)
+        self.player_controls.slider_timeline.sliderMoved.connect(self.on_slider_moved)
+        self.player_controls.btn_play_pause.clicked.connect(self.toggle_play_pause)
+        self.player_controls.btn_mute.toggled.connect(self.on_mute_toggled)
+        self.player_controls.slider_volume.valueChanged.connect(self.on_volume_changed)
 
     def update_spinboxes_from_rect(self, rect):
         self.pos_x_spinbox.blockSignals(True)
@@ -191,23 +171,23 @@ class CropVideoTab(QWidget):
 
     def on_playback_state_changed(self, state):
         if state == self.video_player_widget.player.PlaybackState.PlayingState:
-            self.btn_play_pause.setText("Pause")
+            self.player_controls.btn_play_pause.setText("Pause")
         else:
-            self.btn_play_pause.setText("Play")
+            self.player_controls.btn_play_pause.setText("Play")
 
     def toggle_play_pause(self):
-        toggle_play_pause(self.video_player_widget.player, self.btn_play_pause)
+        toggle_play_pause(self.video_player_widget.player, self.player_controls.btn_play_pause)
 
     def on_player_position_changed(self, position):
         # For now, we assume is_slider_moving is False as we don't implement the press/release logic for simplicity
-        handle_player_position_changed(self.slider_timeline, False, position, self.update_time_label)
+        handle_player_position_changed(self.player_controls.slider_timeline, False, position, self.update_time_label)
 
     def on_player_duration_changed(self, duration):
-        handle_player_duration_changed(self.slider_timeline, duration, self.update_time_label)
+        handle_player_duration_changed(self.player_controls.slider_timeline, duration, self.update_time_label)
 
     def update_time_label(self):
         time_str = get_formatted_time_str(self.video_player_widget.player.position(), self.video_player_widget.player.duration())
-        self.lbl_time.setText(time_str)
+        self.player_controls.lbl_time.setText(time_str)
 
     def on_slider_moved(self, position):
         self.video_player_widget.player.setPosition(position)

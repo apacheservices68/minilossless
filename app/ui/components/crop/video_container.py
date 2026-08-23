@@ -8,9 +8,9 @@ class VideoContainer(QWidget):
         self.aspect_ratio = 16 / 9.0
         self.h_ruler = None
         self.v_ruler = None
-        
-        self.PREVIEW_MAX_W = 800
-        self.PREVIEW_MAX_H = 800
+        self.PREVIEW_DEFAULT = 720
+        self.PREVIEW_MAX_W = 1280
+        self.PREVIEW_MAX_H = 720
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -49,12 +49,12 @@ class VideoContainer(QWidget):
         # TỰ ĐỘNG TÍNH TOÁN THEO CHIỀU DÀI HƠN
         # Nếu là video ngang (Ratio >= 1): Ép Max Width = 800px
         # Nếu là video dọc (Ratio < 1):  Ép Max Height = 800px
-        if self.aspect_ratio >= 1.0:
-            self.PREVIEW_MAX_W = 800
-            self.PREVIEW_MAX_H = int(800 / self.aspect_ratio)
-        else:
-            self.PREVIEW_MAX_H = 800
-            self.PREVIEW_MAX_W = int(800 * self.aspect_ratio)
+        # if self.aspect_ratio >= 1.0:
+        #     self.PREVIEW_MAX_W = 800
+        #     self.PREVIEW_MAX_H = int(800 / self.aspect_ratio)
+        # else:
+        #     self.PREVIEW_MAX_H = 800
+        #     self.PREVIEW_MAX_W = int(800 * self.aspect_ratio)
             
         self._update_player_layout()
 
@@ -72,7 +72,6 @@ class VideoContainer(QWidget):
             target_w = int(target_h * self.aspect_ratio)
 
         # 2. CHÌA KHÓA DIỆT VIỀN ĐEN: Ép cả Stack Container lẫn Child Widget 
-        # thu về đúng 720x405px (với video ngang)
         self.video_widget.setFixedSize(target_w, target_h)
         if hasattr(self.video_widget, 'children'):
             for child in self.video_widget.children():
@@ -86,6 +85,14 @@ class VideoContainer(QWidget):
             self.h_ruler.setFixedWidth(target_w)
         if self.v_ruler:
             self.v_ruler.setFixedHeight(target_h)
+
+        # Tìm chính xác class CropVideoTab ở cấp cha
+        parent_tab = self.parent()
+        while parent_tab and not hasattr(parent_tab, 'player_controls'):
+            parent_tab = parent_tab.parent()
+
+        if parent_tab and hasattr(parent_tab, 'player_controls'):
+            parent_tab.player_controls.setFixedWidth(target_w)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

@@ -17,5 +17,5 @@ assets/models/*
 dist/
 build/
 *.spec
-
+*.mp4
 !assets/bin/.gitkeep
