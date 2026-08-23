@@ -1,4 +1,3 @@
-
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QGridLayout, QLabel, QSpinBox, QPushButton, QSizePolicy, QStackedLayout, QSlider
 )
@@ -7,7 +6,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QRect
 from app.core.helpers import get_media_info
 from app.ui.components.crop.player_control_widget import PlayerControlsWidget
 from app.ui.utils import get_formatted_time_str, toggle_play_pause, handle_player_position_changed, handle_player_duration_changed
-from app.ui.components.video_player_widget import VideoPlayerWidget
+from app.ui.components.crop.crop_video_player_widget import CropVideoPlayerWidget
 from .crop_overlay_widget import CropOverlayWidget
 from .ruler_widget import RulerWidget
 from .video_container import VideoContainer
@@ -21,7 +20,7 @@ class CropVideoTab(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
         self.main_window = main_window
-        self.video_player_widget = VideoPlayerWidget()
+        self.video_player_widget = CropVideoPlayerWidget()
         self.overlay_widget = None
         self.video_container = None
         self.controls_widget = None
@@ -45,7 +44,7 @@ class CropVideoTab(QWidget):
         self.video_container = VideoContainer()
         self.overlay_widget = CropOverlayWidget()
         self.overlay_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.video_container.set_video_widget(self.video_player_widget.video_widget, self.overlay_widget)
+        self.video_container.set_video_widget(self.video_player_widget.view, self.overlay_widget)
 
         # Add các widget vào Grid chuẩn vị trí
         left_grid.addWidget(QWidget(), 0, 0)  # Corner widget

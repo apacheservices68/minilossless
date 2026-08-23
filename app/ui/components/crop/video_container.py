@@ -70,6 +70,13 @@ class VideoContainer(QWidget):
 
         # 2. Key to eliminating black borders: Force both container and child widget sizes
         self.video_widget.setGeometry(0, 0, target_w, target_h)
+        
+        # Nếu video_widget là QGraphicsView, bắt buộc ép fitInView lại để video phóng to vừa vặn
+        if hasattr(self.video_widget, 'parent') and self.video_widget.parent():
+            player_widget = self.video_widget.parent()
+            if hasattr(player_widget, 'fit_in_view'):
+                player_widget.fit_in_view()
+
         if self.overlay_widget:
             self.overlay_widget.setGeometry(0, 0, target_w, target_h)
             self.overlay_widget.raise_()  # Ép overlay luôn nằm trên cùng Z-order
