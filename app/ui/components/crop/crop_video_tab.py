@@ -38,13 +38,21 @@ class CropVideoTab(QWidget):
         self.h_ruler = RulerWidget(Qt.Orientation.Horizontal)
         self.v_ruler = RulerWidget(Qt.Orientation.Vertical)
 
-        self.video_container = VideoContainer()
+        # Container for video player and overlay
         player_stack = QWidget()
-        player_layout = QStackedLayout(player_stack)
-        player_layout.setContentsMargins(0, 0, 0, 0)
-        player_layout.addWidget(self.video_player_widget.video_widget)
+        # Use a layout for the stack to hold the player and overlay
+        stack_layout = QVBoxLayout(player_stack)
+        stack_layout.setContentsMargins(0, 0, 0, 0)
+        player_stack.setLayout(stack_layout)
+
+        # Add video player widget to the stack
+        stack_layout.addWidget(self.video_player_widget.video_widget)
+
+        # Create and add the overlay widget on top of the player
         self.overlay_widget = CropOverlayWidget(player_stack)
-        player_layout.addWidget(self.overlay_widget)
+
+        # Set the container for the video
+        self.video_container = VideoContainer()
         self.video_container.set_video_widget(player_stack)
 
         # Add các widget vào Grid chuẩn vị trí
@@ -53,18 +61,15 @@ class CropVideoTab(QWidget):
         left_grid.addWidget(self.v_ruler, 1, 0)
         left_grid.addWidget(self.video_container, 1, 1)
 
-        # Khởi tạo widget controls riêng
+        # Initialize separate controls widget
         self.player_controls = PlayerControlsWidget()
 
-        # Thêm vào left_grid ở hàng 2
+        # Add to left_grid in row 2
         left_grid.addWidget(self.player_controls, 2, 1)
-        
-        # Nhét nút điều khiển xuống dưới cùng của Grid (Hàng 2, Cột 1)
-        # left_grid.addLayout(self.create_player_controls(), 2, 1)
 
-        # Ép hàng 1 (Video) ưu tiên mở rộng, hàng 2 (Nút) cố định kích thước
-        # left_grid.setRowStretch(1, 1)
-        # left_grid.setRowStretch(2, 0)
+        # Set row stretch factors to prioritize video expansion
+        left_grid.setRowStretch(1, 1)
+        left_grid.setRowStretch(2, 0)
 
         # Right Layout (Controls)
         right_layout_widget = self.create_right_layout()
@@ -199,6 +204,12 @@ class CropVideoTab(QWidget):
         # QMediaPlayer volume is float 0.0-1.0
         self.video_player_widget.player.audioOutput().setVolume(value / 100.0)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.overlay_widget and self.video_container and self.video_container.video_widget:
+            self.overlay_widget.resize(self.video_container.video_widget.size())
+            self.overlay_widget.raise_()
+
     def set_video_path_only(self, file_path):
         self.log_message.emit(f"Crop tab received video: {file_path}")
         self.video_player_widget.load_video(file_path)
@@ -210,10 +221,8 @@ class CropVideoTab(QWidget):
                 video_height = int(video_stream["height"])
                 aspect_ratio = video_width / float(video_height)
 
-                # TRUYỀN CẢ 2 THƯỚC RULER CHO CONTAINER
                 self.video_container.set_h_ruler(self.h_ruler)
                 self.video_container.set_v_ruler(self.v_ruler)
-
                 self.video_container.set_aspect_ratio(aspect_ratio)
 
                 self.h_ruler.set_max_value(video_width)
@@ -223,5 +232,9 @@ class CropVideoTab(QWidget):
                 self.pos_y_spinbox.setRange(0, video_height)
                 self.width_spinbox.setRange(0, video_width)
                 self.height_spinbox.setRange(0, video_height)
+
+                # Set initial crop rectangle to the full video size
+                self.overlay_widget.set_crop_rect(QRect(0, 0, video_width, video_height))
+
         except Exception as e:
             self.log_message.emit(f"Error getting media info: {e}")

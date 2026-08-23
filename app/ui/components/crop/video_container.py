@@ -71,12 +71,14 @@ class VideoContainer(QWidget):
             target_h = self.PREVIEW_MAX_H
             target_w = int(target_h * self.aspect_ratio)
 
-        # 2. CHÌA KHÓA DIỆT VIỀN ĐEN: Ép cả Stack Container lẫn Child Widget 
+        # 2. Key to eliminating black borders: Force both Stack Container and Child Widget sizes
         self.video_widget.setFixedSize(target_w, target_h)
+
+        # Ensure any child widgets (like the overlay) are resized correctly
         if hasattr(self.video_widget, 'children'):
             for child in self.video_widget.children():
-                if hasattr(child, 'setFixedSize'):
-                    child.setFixedSize(target_w, target_h)
+                if isinstance(child, QWidget) and child is not self.video_widget:
+                    child.setGeometry(0, 0, target_w, target_h)
 
         self.setFixedSize(target_w, target_h)
 
