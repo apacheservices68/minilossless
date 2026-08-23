@@ -10,6 +10,7 @@ from app.ui.components.crop.crop_video_player_widget import CropVideoPlayerWidge
 from .crop_overlay_widget import CropOverlayWidget
 from .ruler_widget import RulerWidget
 from .video_container import VideoContainer
+from .right_layout_widget import RightLayoutWidget
 
 class CropVideoTab(QWidget):
     log_message = pyqtSignal(str)
@@ -24,6 +25,7 @@ class CropVideoTab(QWidget):
         self.overlay_widget = None
         self.video_container = None
         self.controls_widget = None
+        self.right_layout = None
         self.init_ui()
         self.connect_signals()
 
@@ -63,12 +65,12 @@ class CropVideoTab(QWidget):
         left_grid.setRowStretch(2, 0)
 
         # Right Layout (Controls)
-        right_layout_widget = self.create_right_layout()
+        self.right_layout = RightLayoutWidget()
 
         main_layout.addWidget(left_container, 7)
-        main_layout.addWidget(right_layout_widget, 3)
+        main_layout.addWidget(self.right_layout, 3)
 
-    def create_right_layout(self):
+    """ def create_right_layout(self):
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(10, 0, 10, 10)
 
@@ -118,15 +120,15 @@ class CropVideoTab(QWidget):
         main_container.setLayout(right_layout)
         main_container.setFixedWidth(350)
 
-        return main_container
+        return main_container """
 
     def connect_signals(self):
         # Crop signals
         self.overlay_widget.crop_rect_changed.connect(self.update_spinboxes_from_rect)
-        self.pos_x_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.pos_y_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.width_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.height_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
+        self.right_layout.pos_x_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
+        self.right_layout.pos_y_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
+        self.right_layout.width_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
+        self.right_layout.height_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
 
         # Player signals
         self.video_player_widget.player.positionChanged.connect(self.on_player_position_changed)
@@ -139,27 +141,27 @@ class CropVideoTab(QWidget):
         self.player_controls.slider_volume.valueChanged.connect(self.on_volume_changed)
 
     def update_spinboxes_from_rect(self, rect):
-        self.pos_x_spinbox.blockSignals(True)
-        self.pos_y_spinbox.blockSignals(True)
-        self.width_spinbox.blockSignals(True)
-        self.height_spinbox.blockSignals(True)
+        self.right_layout.pos_x_spinbox.blockSignals(True)
+        self.right_layout.pos_y_spinbox.blockSignals(True)
+        self.right_layout.width_spinbox.blockSignals(True)
+        self.right_layout.height_spinbox.blockSignals(True)
 
-        self.pos_x_spinbox.setValue(rect.x())
-        self.pos_y_spinbox.setValue(rect.y())
-        self.width_spinbox.setValue(rect.width())
-        self.height_spinbox.setValue(rect.height())
+        self.right_layout.pos_x_spinbox.setValue(rect.x())
+        self.right_layout.pos_y_spinbox.setValue(rect.y())
+        self.right_layout.width_spinbox.setValue(rect.width())
+        self.right_layout.height_spinbox.setValue(rect.height())
 
-        self.pos_x_spinbox.blockSignals(False)
-        self.pos_y_spinbox.blockSignals(False)
-        self.width_spinbox.blockSignals(False)
-        self.height_spinbox.blockSignals(False)
+        self.right_layout.pos_x_spinbox.blockSignals(False)
+        self.right_layout.pos_y_spinbox.blockSignals(False)
+        self.right_layout.width_spinbox.blockSignals(False)
+        self.right_layout.height_spinbox.blockSignals(False)
 
     def update_rect_from_spinboxes(self):
         rect = QRect(
-            self.pos_x_spinbox.value(),
-            self.pos_y_spinbox.value(),
-            self.width_spinbox.value(),
-            self.height_spinbox.value()
+            self.right_layout.pos_x_spinbox.value(),
+            self.right_layout.pos_y_spinbox.value(),
+            self.right_layout.width_spinbox.value(),
+            self.right_layout.height_spinbox.value()
         )
         self.overlay_widget.set_crop_rect(rect)
 
@@ -216,10 +218,10 @@ class CropVideoTab(QWidget):
                 self.h_ruler.set_max_value(video_width)
                 self.v_ruler.set_max_value(video_height)
 
-                self.pos_x_spinbox.setRange(0, video_width)
-                self.pos_y_spinbox.setRange(0, video_height)
-                self.width_spinbox.setRange(0, video_width)
-                self.height_spinbox.setRange(0, video_height)
+                self.right_layout.pos_x_spinbox.setRange(0, video_width)
+                self.right_layout.pos_y_spinbox.setRange(0, video_height)
+                self.right_layout.width_spinbox.setRange(0, video_width)
+                self.right_layout.height_spinbox.setRange(0, video_height)
 
                 # Set initial crop rectangle to the full video size
                 # self.overlay_widget.set_crop_rect(QRect(0, 0, video_width, video_height))

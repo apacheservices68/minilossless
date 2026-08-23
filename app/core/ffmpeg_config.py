@@ -38,10 +38,13 @@ FFMPEG_CONFIGS = {
     "AUDIO_CODEC_AAC": VIDEO_CODECS.AAC,
     "AUDIO_BITRATE_192K": "192k",
 
-    # Optional Parameters
+    # CUDA Optional Parameters for bitrate, QP, and gop size 
     "BITRATE": None,
-    "QP": None,
-    "GOP_SIZE": None,
+    "QP": "24",
+    "GOP_SIZE": "60",
+    ## Add on 08232026 
+    "RC_VALUE": "constqp",
+    "SCENECUT" : "1"
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -150,8 +153,15 @@ def get_ffmpeg_pipe_cmd(
     if use_cuda:
         cmd.extend([
             FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["NVENC_H264_CODEC"],
-            FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"]
+            FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"],
+            FFMPEG_COMMANDS.RC_OPTION, FFMPEG_CONFIGS["RC_VALUE"],
         ])
+        if FFMPEG_CONFIGS["BITRATE"] is not None:
+            cmd.extend(["-b:v", FFMPEG_CONFIGS["BITRATE"]])
+        if FFMPEG_CONFIGS["QP"] is not None:
+            cmd.extend(["-qp", str(FFMPEG_CONFIGS["QP"])])
+        if FFMPEG_CONFIGS["SCENECUT"] is not None:
+            cmd.extend(["-no-scenecut", FFMPEG_CONFIGS["SCENECUT"]])
     else:
         cmd.extend([
             FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"],
@@ -159,13 +169,13 @@ def get_ffmpeg_pipe_cmd(
             FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
             FFMPEG_COMMANDS.PIXEL_FORMAT, FFMPEG_CONFIGS["PIX_FMT"]
         ])
-        
-    if FFMPEG_CONFIGS["BITRATE"] is not None:
-        cmd.extend(["-b:v", FFMPEG_CONFIGS["BITRATE"]])
-    if FFMPEG_CONFIGS["QP"] is not None:
-        cmd.extend(["-qp", str(FFMPEG_CONFIGS["QP"])])
-        if FFMPEG_CONFIGS["GOP_SIZE"] is not None:
-            cmd.extend(["-g", str(FFMPEG_CONFIGS["GOP_SIZE"])])
+
+    if FFMPEG_CONFIGS["GOP_SIZE"] is not None:
+        gop_size = int(FFMPEG_CONFIGS["GOP_SIZE"]) * 2
+          # Set GOP size to 2 seconds worth of frames
+        cmd.extend(["-g", str(gop_size)])
+
+    
         
     cmd.append(output_video_path)
     return cmd

@@ -60,6 +60,11 @@ class FFMPEG_COMMANDS:
     METADATA = "-metadata"
     MAP_METADATA = "-map_metadata"
     FRAME_RATE = "-r"
+    ## Add on 08232026 Additional FFmpeg flags
+    RC_OPTION = "-rc:v"
+    QP_OPTION = "-qp"
+    G_OPTION = "-g"
+    SCENECUT_OPTION = "-no-scenecut"
 
 class FFMPEG_FLAGS:
     AVOID_NEGATIVE_TS = "-avoid_negative_ts"
