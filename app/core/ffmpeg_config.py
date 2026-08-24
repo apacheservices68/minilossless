@@ -49,7 +49,8 @@ FFMPEG_CONFIGS = {
     "TUNE_VAL" : "6",
     "SPATIAL_VAL": "1",
     "TEMPORAL_VAL": "1",
-    "LOOKAHEAD_VAL" : "32"
+    "LOOKAHEAD_VAL" : "32",
+    "A_MUTE" : "-an"
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:

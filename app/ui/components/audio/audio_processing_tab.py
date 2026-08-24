@@ -99,11 +99,14 @@ class AudioProcessingTab(QWidget):
 
         base_name = os.path.basename(self.video_path)
         name, ext = os.path.splitext(base_name)
-        default_filename = os.path.join(os.path.dirname(self.video_path), f"{name}_smart_mute.mp4")
-
+        # Update 08242026 temporary off show dialog
+        """ default_filename = os.path.join(os.path.dirname(self.video_path), f"{name}_smart_mute.mp4")
         output_path, _ = QFileDialog.getSaveFileName(self, "Save Muted Video", default_filename, "Video Files (*.mp4)")
         if not output_path:
-            return
+            return """
+        folder, filename = os.path.split(self.video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_smart_mute{ext}")
 
         settings = self.mute_controls.get_settings()
         segments = self.segment_manager.get_all_segments()
@@ -114,11 +117,25 @@ class AudioProcessingTab(QWidget):
         self.audio_worker = AudioWorker(self.video_path, output_path, settings)
 
         self.audio_worker.log.connect(self.log_message)
+        self.audio_worker.progress.connect(self.on_export_progress)
         self.audio_worker.finished.connect(self.on_export_finished)
         self.audio_worker.start()
 
-    def on_export_finished(self):
+    def on_export_progress(self, percent):
+            self.mute_controls.export_button.setText(f"Processing... {percent}%")
+
+    def on_export_finished(self, success, result_message):
         self.log_message.emit("Export finished.")
+        # Mở lại nút bấm
+        self.mute_controls.export_button.setEnabled(True)
+        self.mute_controls.export_button.setText("🚀 Run Export Process")
+
+        if success:
+            self.log_message.emit(f"SUCCESS: Smart mute video saved to: {result_message}")
+        else:
+            self.log_message.emit(f"ERROR: Smart mute process failed: {result_message}")
+        
+        self.audio = None
 
     def on_playback_state_changed(self, state):
         video_player = self.left_widget.video_player

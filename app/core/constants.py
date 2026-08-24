@@ -72,7 +72,8 @@ class FFMPEG_COMMANDS:
     HIGH_QUALITY_TUNE = "-tune",
     SPATIAL_AQ = "-spatial-aq",
     TEMPORAL_AQ = "-temporal-aq",
-    RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY
+    RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY,
+    FILTER_COMPLEX = "-filter_complex_script"
 
 class FFMPEG_FLAGS:
     AVOID_NEGATIVE_TS = "-avoid_negative_ts"

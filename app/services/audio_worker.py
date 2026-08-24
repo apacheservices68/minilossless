@@ -5,6 +5,9 @@ import os
 import tempfile
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from app.core.constants import FFMPEG_COMMANDS
+from app.core.ffmpeg_config import FFMPEG_CONFIGS, FFMPEG_PATH
+from app.core.helpers import get_time_pattern
 from app.services.audio_service import AudioService
 from app.core import audio_constants as const
 
@@ -128,30 +131,30 @@ class AudioWorker(QThread):
     def run_ffmpeg_export(self, filter_script_path, mute_all=False, audio_filter=None):
         if mute_all:
             command = [
-                "ffmpeg", "-y", "-i", self.video_file,
-                "-c:v", "copy",
-                "-an",  # No audio
+                FFMPEG_PATH, "-y", "-i", self.video_file,
+                FFMPEG_COMMANDS.VIDEO_CODEC, "copy",
+                FFMPEG_CONFIGS["A_MUTE"],  # No audio
                 self.output_path
             ]
         elif audio_filter:
              command = [
-                "ffmpeg", "-y", "-i", self.video_file,
-                "-c:v", "copy",
-                "-af", audio_filter,
+                FFMPEG_PATH, "-y", "-i", self.video_file,
+                FFMPEG_COMMANDS.VIDEO_CODEC, "copy",
+                FFMPEG_COMMANDS.AUDIO_FILTER, audio_filter,
                 self.output_path
             ]
         elif filter_script_path:
             command = [
-                "ffmpeg", "-y", "-i", self.video_file,
-                "-filter_complex_script", filter_script_path,
-                "-map", "0:v",
-                "-map", "[a]",
-                "-c:v", "copy",
+                FFMPEG_PATH, "-y", "-i", self.video_file,
+                FFMPEG_COMMANDS.FILTER_COMPLEX, filter_script_path,
+                FFMPEG_COMMANDS.MAP, "0:v",
+                FFMPEG_COMMANDS.MAP, "[a]",
+                FFMPEG_COMMANDS.VIDEO_CODEC, "copy",
                 self.output_path
             ]
         else:  # No audio processing needed, just copy the original video
             self.log.emit("[INFO] No audio processing needed. Copying video stream directly.")
-            command = ["ffmpeg", "-y", "-i", self.video_file, "-c:v", "copy", "-c:a", "copy", self.output_path]
+            command = [FFMPEG_PATH, "-y", "-i", self.video_file, FFMPEG_COMMANDS.VIDEO_CODEC, "copy", FFMPEG_COMMANDS.AUDIO_CODEC, "copy", self.output_path]
 
         cmd_str = " ".join(command)
 
@@ -163,6 +166,19 @@ class AudioWorker(QThread):
             result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
             # for line in result.stderr.splitlines(): # FFmpeg logs progress to stderr
                 # self.log.emit(line.strip())
+            for line in result.stdout:
+                if self._is_cancelled:
+                    result.kill()
+                    self.finished.emit(False, "Process cancelled by user.")
+                    return
+
+                # Parse tiến độ thời gian FFmpeg để tính %
+                match = get_time_pattern.search(line)
+                if match and self.duration_sec > 0:
+                    hours, minutes, seconds = map(float, match.groups())
+                    elapsed = hours * 3600 + minutes * 60 + seconds
+                    pct = int((elapsed / self.duration_sec) * 100)
+                    self.progress.emit(min(100, max(0, pct)))
 
         except subprocess.CalledProcessError as e:
             self.log.emit("--- FFmpeg Error Output ---")

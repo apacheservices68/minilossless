@@ -1,8 +1,12 @@
 import json
 import os
+import re
 import cv2
 import math
 import subprocess
+
+def get_time_pattern():
+    return re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
 
 def check_cuda_support():
     try:
