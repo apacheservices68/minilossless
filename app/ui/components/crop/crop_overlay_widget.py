@@ -112,6 +112,10 @@ class CropOverlayWidget(QWidget):
             self.crop_rect = rect
             self.update()
 
+    def reset_ui(self):
+        self.set_video_resolution(0, 0)
+        self.set_crop_rect(QRect(0, 0, 0, 0))
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.update()

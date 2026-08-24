@@ -42,6 +42,10 @@ def reset_workspace(main_window):
     if hasattr(main_window, 'audio_tab'):
         main_window.audio_tab.reset_ui()
 
+    # 6. Reset CropTab
+    if hasattr(main_window, 'crop_tab'):
+        main_window.crop_tab.reset_ui()
+
 
 def save_project_state(main_window):
     """

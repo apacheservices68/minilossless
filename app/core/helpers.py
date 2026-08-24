@@ -12,6 +12,18 @@ def check_cuda_support():
         pass
 
     try:
+
+        # Kiểm tra xem ffmpeg có hỗ trợ h264_nvenc encoder không
+        result = subprocess.run(
+            ["ffmpeg", "-encoders"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        if "h264_nvenc" in result.stdout:
+            return True
+        
         cmd = "nvidia-smi.exe" if os.name == "nt" else "nvidia-smi"
         res = subprocess.run([cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         if res.returncode == 0:

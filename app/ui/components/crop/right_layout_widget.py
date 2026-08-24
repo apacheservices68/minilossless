@@ -50,6 +50,9 @@ class RightLayoutWidget(QWidget):
         self.process_button = QPushButton("Process Crop Video")
         self.process_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
         self.process_layout.addWidget(self.process_button)
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+        self.process_layout.addWidget(self.reset_button)
         self.process_group.setLayout(self.process_layout)
 
         self.main_layout.addWidget(self.controls_group)
@@ -62,3 +65,11 @@ class RightLayoutWidget(QWidget):
         # main_container.setLayout(self.main_layout)
         # main_container.setFixedWidth(350)
         # return main_container
+
+    def reset_ui(self):
+        self.pos_x_spinbox.setValue(0)
+        self.pos_y_spinbox.setValue(0)
+        self.width_spinbox.setValue(0)
+        self.height_spinbox.setValue(0)
+        self.process_button.setEnabled(True)
+        self.process_button.setText("Process Crop Video")

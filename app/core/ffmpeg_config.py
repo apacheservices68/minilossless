@@ -44,7 +44,12 @@ FFMPEG_CONFIGS = {
     "GOP_SIZE": "60",
     ## Add on 08232026 
     "RC_VALUE": "constqp",
-    "SCENECUT" : "1"
+    "SCENECUT" : "1",
+    "MAX_MUTE_QUEUE_VAL" : "9999",
+    "TUNE_VAL" : "6",
+    "SPATIAL_VAL": "1",
+    "TEMPORAL_VAL": "1",
+    "LOOKAHEAD_VAL" : "32"
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -214,6 +219,46 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
         cmd.extend([FFMPEG_COMMANDS.QUALITY, str(quality)]) # Quality for JPG (1-31, lower is better)
     cmd.append(output_path)
     return cmd
+
+def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
+
+    FFMPEG_GPU_PRESET = "p6"
+    FFMPEG_GPU_CQ = "20"
+
+    # Command Template CPU
+    FFMPEG_CROP_CPU_CMD = [
+        FFMPEG_PATH, "-y",
+        "-i", "{input_path}",
+        FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
+        FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
+        FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
+        FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
+        FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
+        FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
+        "{output_path}"
+    ]
+
+    # Command Template GPU (NVIDIA NVENC)
+    FFMPEG_CROP_GPU_CMD = [
+        FFMPEG_PATH, FFMPEG_COMMANDS.HARDWARE_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"], "-y",
+        "-i", "{input_path}",
+        FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
+        FFMPEG_COMMANDS.PRESET, FFMPEG_GPU_PRESET,
+        # "-tune", "hq", # USe for VBR
+        FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
+        FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.NVENC_H264,
+        # "-rc", "vbr_hq",
+        # "-cq", FFMPEG_GPU_CQ,
+        FFMPEG_COMMANDS.RC_OPTION, FFMPEG_CONFIGS["RC_VALUE"],
+        FFMPEG_COMMANDS.QP_OPTION, FFMPEG_CONFIGS["QP"],
+        FFMPEG_COMMANDS.SPATIAL_AQ, FFMPEG_CONFIGS["SPATIAL_VAL"],
+        FFMPEG_COMMANDS.TEMPORAL_AQ, FFMPEG_CONFIGS["TEMPORAL_VAL"],
+        # "-rc-lookahead", "32",
+        FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
+        "{output_path}"
+    ]
+    return FFMPEG_CROP_GPU_CMD if is_gpu else FFMPEG_CROP_CPU_CMD
+
 
 def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> list[str]:
     """Build command for exporting with various options (FPS, tracks, metadata)."""

@@ -27,3 +27,24 @@ class PlayerControlsWidget(QWidget):
         player_controls_layout.addWidget(self.lbl_time)
         player_controls_layout.addWidget(self.btn_mute)
         player_controls_layout.addWidget(self.slider_volume)
+
+    def reset_ui(self):
+        """Reset toàn bộ trạng thái thanh điều khiển player"""
+        # Reset nút Play/Pause
+        self.btn_play_pause.setText("Play")
+        
+        # Reset slider timeline và label thời gian
+        self.slider_timeline.blockSignals(True)
+        self.slider_timeline.setRange(0, 0)
+        self.slider_timeline.setValue(0)
+        self.slider_timeline.blockSignals(False)
+        
+        self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
+        
+        # Reset nút Mute & Volume
+        self.btn_mute.setChecked(False)
+        self.btn_mute.setText("Mute")
+        
+        self.slider_volume.blockSignals(True)
+        self.slider_volume.setValue(100)
+        self.slider_volume.blockSignals(False)

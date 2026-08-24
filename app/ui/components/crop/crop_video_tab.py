@@ -1,9 +1,12 @@
+import os
+
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QGridLayout, QLabel, QSpinBox, QPushButton, QSizePolicy, QStackedLayout, QSlider
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QRect
 
 from app.core.helpers import get_media_info
+from app.services.crop_worker import CropWorker
 from app.ui.components.crop.player_control_widget import PlayerControlsWidget
 from app.ui.utils import get_formatted_time_str, toggle_play_pause, handle_player_position_changed, handle_player_duration_changed
 from app.ui.components.crop.crop_video_player_widget import CropVideoPlayerWidget
@@ -26,6 +29,9 @@ class CropVideoTab(QWidget):
         self.video_container = None
         self.controls_widget = None
         self.right_layout = None
+
+        self.current_video_path = None
+        self.crop_worker = None
         self.init_ui()
         self.connect_signals()
 
@@ -70,58 +76,6 @@ class CropVideoTab(QWidget):
         main_layout.addWidget(left_container, 7)
         main_layout.addWidget(self.right_layout, 3)
 
-    """ def create_right_layout(self):
-        right_layout = QVBoxLayout()
-        right_layout.setContentsMargins(10, 0, 10, 10)
-
-        # Controls Group
-        controls_group = QGroupBox("Controls")
-        controls_layout = QGridLayout()
-
-        # Position
-        pos_group = QGroupBox("Position")
-        pos_layout = QGridLayout()
-        pos_layout.addWidget(QLabel("Pos X:"), 0, 0)
-        self.pos_x_spinbox = QSpinBox()
-        pos_layout.addWidget(self.pos_x_spinbox, 0, 1)
-        pos_layout.addWidget(QLabel("Pos Y:"), 1, 0)
-        self.pos_y_spinbox = QSpinBox()
-        pos_layout.addWidget(self.pos_y_spinbox, 1, 1)
-        pos_group.setLayout(pos_layout)
-
-        # Size
-        size_group = QGroupBox("Size")
-        size_layout = QGridLayout()
-        size_layout.addWidget(QLabel("Width:"), 0, 0)
-        self.width_spinbox = QSpinBox()
-        size_layout.addWidget(self.width_spinbox, 0, 1)
-        size_layout.addWidget(QLabel("Height:"), 1, 0)
-        self.height_spinbox = QSpinBox()
-        size_layout.addWidget(self.height_spinbox, 1, 1)
-        size_group.setLayout(size_layout)
-
-        controls_layout.addWidget(pos_group, 0, 0)
-        controls_layout.addWidget(size_group, 1, 0)
-        controls_group.setLayout(controls_layout)
-
-        # Process Output Group
-        process_group = QGroupBox("Process Output")
-        process_layout = QVBoxLayout()
-        self.process_button = QPushButton("Process Crop Video")
-        self.process_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-        process_layout.addWidget(self.process_button)
-        process_group.setLayout(process_layout)
-
-        right_layout.addWidget(controls_group)
-        right_layout.addWidget(process_group)
-        right_layout.addStretch()
-
-        main_container = QWidget()
-        main_container.setLayout(right_layout)
-        main_container.setFixedWidth(350)
-
-        return main_container """
-
     def connect_signals(self):
         # Crop signals
         self.overlay_widget.crop_rect_changed.connect(self.update_spinboxes_from_rect)
@@ -139,6 +93,86 @@ class CropVideoTab(QWidget):
         self.player_controls.btn_play_pause.clicked.connect(self.toggle_play_pause)
         self.player_controls.btn_mute.toggled.connect(self.on_mute_toggled)
         self.player_controls.slider_volume.valueChanged.connect(self.on_volume_changed)
+
+        # Connect event Reset button
+        self.right_layout.reset_button.clicked.connect(self.reset_crop_to_default)
+        self.right_layout.process_button.clicked.connect(self.start_crop_process)
+
+    def start_crop_process(self):
+        if not self.current_video_path or not os.path.exists(self.current_video_path):
+            self.log_message.emit("Error: No valid video loaded to crop.")
+            return
+
+        # 1. Lấy thông số crop từ các SpinBox
+        x = self.right_layout.pos_x_spinbox.value()
+        y = self.right_layout.pos_y_spinbox.value()
+        w = self.right_layout.width_spinbox.value()
+        h = self.right_layout.height_spinbox.value()
+
+        if w <= 0 or h <= 0:
+            self.log_message.emit("Error: Crop width and height must be greater than 0.")
+            return
+
+        # 2. Tạo đường dẫn file đầu ra (Thêm hậu tố _cropped)
+        folder, filename = os.path.split(self.current_video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_cropped{ext}")
+
+        # 3. Lấy thời lượng video (để tính %)
+        duration_sec = self.video_player_widget.player.duration() / 1000.0
+
+        # 4. Khóa nút để tránh bấm dồn dập
+        self.right_layout.process_button.setEnabled(False)
+        self.right_layout.process_button.setText("Processing...")
+
+        # 5. Khởi tạo và chạy Worker
+        self.crop_worker = CropWorker(
+            input_path=self.current_video_path,
+            output_path=output_path,
+            x=x, y=y, w=w, h=h,
+            duration_sec=duration_sec
+        )
+
+        # Nối các tín hiệu từ Worker
+        self.crop_worker.log_signal.connect(self.log_message.emit)
+        self.crop_worker.progress.connect(self.on_crop_progress)
+        self.crop_worker.finished_signal.connect(self.on_crop_finished)
+
+        self.crop_worker.start()
+
+    def on_crop_progress(self, percent):
+        # Cập nhật phần trăm lên nút bấm hoặc Log
+        self.right_layout.process_button.setText(f"Processing... {percent}%")
+
+    def on_crop_finished(self, success, result_message):
+        # Mở lại nút bấm
+        self.right_layout.process_button.setEnabled(True)
+        self.right_layout.process_button.setText("Process Crop Video")
+
+        if success:
+            self.log_message.emit(f"SUCCESS: Cropped video saved to: {result_message}")
+        else:
+            self.log_message.emit(f"ERROR: Crop process failed: {result_message}")
+        
+        self.crop_worker = None
+
+    def reset_crop_to_default(self):
+        # Lấy độ phân giải video thực tế từ overlay_widget
+        video_width = self.overlay_widget.video_width
+        video_height = self.overlay_widget.video_height
+
+        if video_width > 1 and video_height > 1:
+            # Tính toán lại khung Crop mặc định = 60% kích thước video ở chính giữa
+            crop_w = int(video_width * 0.6)
+            crop_h = int(video_height * 0.6)
+            crop_x = int((video_width - crop_w) / 2)
+            crop_y = int((video_height - crop_h) / 2)
+            default_rect = QRect(crop_x, crop_y, crop_w, crop_h)
+
+            # Đặt lại vị trí overlay và đồng bộ 4 ô SpinBox nhập liệu
+            self.overlay_widget.set_crop_rect(default_rect)
+            self.update_spinboxes_from_rect(default_rect)
+            self.log_message.emit("Crop rectangle reset to default.")
 
     def update_spinboxes_from_rect(self, rect):
         self.right_layout.pos_x_spinbox.blockSignals(True)
@@ -199,6 +233,7 @@ class CropVideoTab(QWidget):
 
 
     def set_video_path_only(self, file_path):
+        self.current_video_path = file_path
         self.log_message.emit(f"Crop tab received video: {file_path}")
         self.video_player_widget.load_video(file_path)
         try:
@@ -237,3 +272,15 @@ class CropVideoTab(QWidget):
 
         except Exception as e:
             self.log_message.emit(f"Error getting media info: {e}")
+
+    def reset_ui(self):
+        if self.crop_worker and self.crop_worker.isRunning():
+            self.crop_worker.cancel()
+            self.crop_worker.wait()
+            self.crop_worker = None
+        self.video_path = None
+        self.video_player_widget.reset_player()
+        self.overlay_widget.reset_ui()
+        self.right_layout.reset_ui()
+        self.player_controls.reset_ui()
+        self.video_container.reset_ui()

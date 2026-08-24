@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QSizePolicy
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QRect, QSize, Qt
 
 from .crop_overlay_widget import CropOverlayWidget
 
@@ -107,3 +107,22 @@ class VideoContainer(QWidget):
 
     def sizeHint(self):
         return QSize(self.PREVIEW_MAX_W, self.PREVIEW_MAX_H)
+
+    def reset_ui(self):
+        """Reset kích thước VideoContainer và clear Overlay"""
+        self.aspect_ratio = 16 / 9.0
+        
+        # Reset kích thước container về mặc định
+        self.setFixedSize(self.PREVIEW_MAX_W, self.PREVIEW_MAX_H)
+        
+        # Reset 2 ruler nếu có
+        if self.h_ruler:
+            self.h_ruler.setFixedWidth(self.PREVIEW_MAX_W)
+        if self.v_ruler:
+            self.v_ruler.setFixedHeight(self.PREVIEW_MAX_H)
+
+        # Reset overlay vẽ đè
+        if self.overlay_widget:
+            self.overlay_widget.set_video_resolution(0, 0)
+            self.overlay_widget.set_crop_rect(QRect(0, 0, 0, 0))
+            self.overlay_widget.update()

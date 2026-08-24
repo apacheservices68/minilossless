@@ -65,6 +65,14 @@ class FFMPEG_COMMANDS:
     QP_OPTION = "-qp"
     G_OPTION = "-g"
     SCENECUT_OPTION = "-no-scenecut"
+    ## Add on 08242026
+    VIDEO_FILTER_L = "-filter:v"
+    MAX_MUTE_QUEUE = "-max_muxing_queue_size"
+    HARDWARE_ACCE = "-hwaccel"
+    HIGH_QUALITY_TUNE = "-tune",
+    SPATIAL_AQ = "-spatial-aq",
+    TEMPORAL_AQ = "-temporal-aq",
+    RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY
 
 class FFMPEG_FLAGS:
     AVOID_NEGATIVE_TS = "-avoid_negative_ts"

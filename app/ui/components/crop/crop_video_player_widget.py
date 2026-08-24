@@ -137,7 +137,7 @@ class CropVideoPlayerWidget(QWidget):
                 QTimer.singleShot(50, self.fit_in_view)
 
     def reset_player(self):
-        self.player.pause()
+        self.player.stop()
         self.player.setSource(QUrl())
         self.slider_timeline.setValue(0)
         self.lbl_time.setText("00:00:00.000 / 00:00:00.000")
