@@ -210,48 +210,20 @@ class AdvanceWatermarkTab(QWidget):
 
         texts_to_backend = calculate_relative_text_overlays(self.text_items, self.video_player_widget.video_item)
 
-        ext = os.path.splitext(self.selected_video_path)[1]
-        output_path, _ = QFileDialog.getSaveFileName(
-            self, "Save AI Exported Video As", f"ai_output{ext}", f"Video Files (*{ext});;All Files (*)"
-        )
+        # ext = os.path.splitext(self.selected_video_path)[1]
+        # output_path, _ = QFileDialog.getSaveFileName(
+        #     self, "Save AI Exported Video As", f"ai_output{ext}", f"Video Files (*{ext});;All Files (*)"
+        # )
+
+        folder, filename = os.path.split(self.selected_video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_watermark_output{ext}")
         if not output_path:
             return
 
         ai_state = self.ai_filters_widget.get_state()
 
-        msg_box = QMessageBox(self)
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        msg_box.setWindowTitle("Confirm AI Export Configuration")
-        msg_box.setText("Are you sure you want to export the video with selected configurations?")
-        
-        cuda_status = "Enabled" if ai_state["cuda"] else "Disabled"
-        face_type_str = self.ai_filters_widget.cb_face_blur_type.currentText()
-        if ai_state["face_blur_type"] == "Image":
-            face_type_str += f" ({os.path.basename(ai_state['face_blur_image_path'])})"
-        face_style_str = self.ai_filters_widget.cb_face_blur_style.currentText()
-        face_strength = ai_state["face_blur_strength"]
-        fblur_status = f"Enabled ({face_type_str}, style {face_style_str}, strength {face_strength}, top {ai_state['face_blur_pct']}% of face)" if ai_state['face_blur'] else "Disabled"
-        bblur_status = f"Enabled (kernel {ai_state['bg_blur_strength']}px)" if ai_state["bg_blur"] else "Disabled"
-        
-        details = f"""
-Input: {os.path.basename(self.selected_video_path)}
-Output: {os.path.basename(output_path)}
-Resolution: {video_w}x{video_h}
-
-- CUDA Hardware Acceleration: {cuda_status}
-- Face Blur (Face detector): {fblur_status}
-- Background Blur (Selfie segmenter): {bblur_status}
-- Interactive text overlays: {len(texts_to_backend)} text(s) definition mapped
-"""
-        msg_box.setInformativeText(details)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
-        
-        res = msg_box.exec()
-        if res == QMessageBox.StandardButton.No:
-            self.log_message.emit("Export canceled by user.")
-            return
-            
+                    
         self.export_widget.set_processing_state(True)
         self.log_message.emit("Starting AI processing thread...")
         
@@ -282,11 +254,9 @@ Resolution: {video_w}x{video_h}
         if success:
             self.export_widget.set_progress(100, "Finished Successfully!")
             self.log_message.emit("AI Processing thread completed successfully.")
-            QMessageBox.information(self, "Success", "Video processed and exported successfully!")
         else:
             self.export_widget.set_progress(0, "Error during process!")
             self.log_message.emit(f"AI Process Error: {msg}")
-            QMessageBox.critical(self, "Error", f"An error occurred during video processing:\n{msg}")
 
     def get_state(self):
         text_states = []
@@ -363,11 +333,22 @@ Resolution: {video_w}x{video_h}
 
     # Add on 08172026 @apacheservice68 | editor encapsulating all reset actions
     def reset_tab(self):
+        # 1. Hủy worker nếu AI đang chạy ngầm
+        if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+            self.worker.terminate()
+            self.worker.wait()
+            self.worker = None
+
+        # 2. Reset các biến dữ liệu
         self.selected_video_path = ""
         self.text_items.clear()
         self.selected_item = None
         
-        # Gọi hàm reset của từng widget con
+        # 3. Gọi hàm reset của từng widget con
         self.video_player_widget.reset_video()
         self.text_editor_widget.reset_ui()
         self.ai_filters_widget.reset_ui()
+
+        self.export_widget.reset()  # Reset luôn thanh tiến trình & nút Export
+
+        self.log_message.emit("Advance Watermark Tab workspace reset.")

@@ -67,11 +67,11 @@ class FFMPEG_COMMANDS:
     SCENECUT_OPTION = "-no-scenecut"
     ## Add on 08242026
     VIDEO_FILTER_L = "-filter:v"
-    MAX_MUTE_QUEUE = "-max_muxing_queue_size"
     HARDWARE_ACCE = "-hwaccel"
-    HIGH_QUALITY_TUNE = "-tune",
-    SPATIAL_AQ = "-spatial-aq",
-    TEMPORAL_AQ = "-temporal-aq",
+    HIGH_QUALITY_TUNE = "-tune"
+    SPATIAL_AQ = "-spatial_aq"
+    TEMPORAL_AQ = "-temporal_aq"
+    MAX_MUTE_QUEUE = "-max_muxing_queue_size"
     RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY,
     FILTER_COMPLEX = "-filter_complex_script"
 

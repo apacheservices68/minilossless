@@ -22,6 +22,25 @@ def parse_ffmpeg_progress(line: str, duration_sec: float) -> int | None:
 
     return None
 
+def export_video_with_progress(cmd, duration_sec, progress_callback=None):
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        text=True,
+        universal_newlines=True
+    )
+
+    for line in process.stdout:
+        if progress_callback:
+            pct = parse_ffmpeg_progress(line, duration_sec)
+            if pct is not None:
+                progress_callback(pct, f"Exporting: {pct}%")
+
+    process.wait()
+    return process.returncode == 0
+
 def check_cuda_support():
     try:
         if hasattr(cv2, 'cuda') and cv2.cuda.getCudaEnabledDeviceCount() > 0:

@@ -41,9 +41,13 @@ class ExportPipelineWidget(QWidget):
         self.progress_bar.setValue(0)
         self.lbl_progress_status.setText("Idle")
         self.btn_start_process.setEnabled(True)
+        self.btn_start_process.setText("🚀 Run AI Export Pipeline (Re-encode)")
 
     def set_processing_state(self, is_processing):
         self.btn_start_process.setEnabled(not is_processing)
         if is_processing:
+            self.btn_start_process.setText("⏳ Processing AI Video...")
             self.lbl_progress_status.setText("Processing starting...")
+        else:
+            self.btn_start_process.setText("🚀 Run AI Export Pipeline (Re-encode)")
         

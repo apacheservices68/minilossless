@@ -44,7 +44,7 @@ FFMPEG_CONFIGS = {
     "GOP_SIZE": "60",
     ## Add on 08232026 
     "RC_VALUE": "constqp",
-    "SCENECUT" : "1",
+    "SCENECUT" : None,
     "MAX_MUTE_QUEUE_VAL" : "9999",
     "TUNE_VAL" : "6",
     "SPATIAL_VAL": "1",
@@ -168,6 +168,12 @@ def get_ffmpeg_pipe_cmd(
             cmd.extend(["-qp", str(FFMPEG_CONFIGS["QP"])])
         if FFMPEG_CONFIGS["SCENECUT"] is not None:
             cmd.extend(["-no-scenecut", FFMPEG_CONFIGS["SCENECUT"]])
+        if FFMPEG_CONFIGS["SPATIAL_VAL"] is not None: 
+            cmd.extend([FFMPEG_COMMANDS.SPATIAL_AQ, str(FFMPEG_CONFIGS["SPATIAL_VAL"])])
+        if FFMPEG_CONFIGS["TEMPORAL_VAL"] is not None: 
+            cmd.extend([FFMPEG_COMMANDS.TEMPORAL_AQ, str(FFMPEG_CONFIGS["TEMPORAL_VAL"])])
+        if FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"] is not None: 
+            cmd.extend([FFMPEG_COMMANDS.MAX_MUTE_QUEUE, str(FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"])])
     else:
         cmd.extend([
             FFMPEG_COMMANDS.VIDEO_CODEC, FFMPEG_CONFIGS["CPU_CODEC"],
