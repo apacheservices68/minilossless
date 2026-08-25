@@ -1,6 +1,7 @@
 import subprocess
 import re
 from PyQt6.QtCore import QThread, pyqtSignal
+from app.core.helpers import parse_ffmpeg_progress
 from app.services.crop_service import CropService
 
 class CropWorker(QThread):
@@ -39,21 +40,14 @@ class CropWorker(QThread):
                 errors='replace'
             )
 
-            time_pattern = re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
-
             for line in process.stdout:
                 if self._is_cancelled:
                     process.kill()
                     self.finished_signal.emit(False, "Process cancelled by user.")
                     return
-
-                # Parse tiến độ thời gian FFmpeg để tính %
-                match = time_pattern.search(line)
-                if match and self.duration_sec > 0:
-                    hours, minutes, seconds = map(float, match.groups())
-                    elapsed = hours * 3600 + minutes * 60 + seconds
-                    pct = int((elapsed / self.duration_sec) * 100)
-                    self.progress.emit(min(100, max(0, pct)))
+                ## Add on 08252026 
+                if (pct := parse_ffmpeg_progress(line, self.duration_sec)) is not None:
+                    self.progress.emit(pct)
 
             process.wait()
 

@@ -7,7 +7,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.constants import FFMPEG_COMMANDS
 from app.core.ffmpeg_config import FFMPEG_CONFIGS, FFMPEG_PATH
-from app.core.helpers import get_time_pattern
+from app.core.helpers import parse_ffmpeg_progress
 from app.services.audio_service import AudioService
 from app.core import audio_constants as const
 
@@ -164,21 +164,16 @@ class AudioWorker(QThread):
             # Using subprocess.run to wait for completion and capture output
             # This is better for preventing hung processes.
             result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
-            # for line in result.stderr.splitlines(): # FFmpeg logs progress to stderr
-                # self.log.emit(line.strip())
+
             for line in result.stdout:
                 if self._is_cancelled:
                     result.kill()
                     self.finished.emit(False, "Process cancelled by user.")
                     return
 
-                # Parse tiến độ thời gian FFmpeg để tính %
-                match = get_time_pattern.search(line)
-                if match and self.duration_sec > 0:
-                    hours, minutes, seconds = map(float, match.groups())
-                    elapsed = hours * 3600 + minutes * 60 + seconds
-                    pct = int((elapsed / self.duration_sec) * 100)
-                    self.progress.emit(min(100, max(0, pct)))
+                ## Add on 08252026 
+                if (pct := parse_ffmpeg_progress(line, self.duration_sec)) is not None:
+                    self.progress.emit(pct)
 
         except subprocess.CalledProcessError as e:
             self.log.emit("--- FFmpeg Error Output ---")

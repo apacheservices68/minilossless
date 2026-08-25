@@ -5,8 +5,22 @@ import cv2
 import math
 import subprocess
 
-def get_time_pattern():
-    return re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
+def parse_ffmpeg_progress(line: str, duration_sec: float) -> int | None:
+    """
+    Parse log FFmpeg và trả về % tiến độ (0 - 100).
+    """
+    if duration_sec <= 0:
+        return None
+
+    time_pattern = re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
+    match = time_pattern.search(line)
+    if match:
+        hours, minutes, seconds = map(float, match.groups())
+        elapsed = hours * 3600 + minutes * 60 + seconds
+        pct = int((elapsed / duration_sec) * 100)
+        return min(100, max(0, pct))
+
+    return None
 
 def check_cuda_support():
     try:
