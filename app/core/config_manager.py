@@ -15,7 +15,7 @@ def reset_workspace(main_window):
     # 1. Reset BasicCutTab
     main_window.basic_tab.video_player_widget.player.setSource(QUrl())
     main_window.basic_tab.selected_video_path = ""
-    main_window.basic_tab.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
+    main_window.basic_tab.video_source_widget.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
     main_window.basic_tab.video_player_widget.slider_timeline.setRange(0, 0)
     main_window.basic_tab.video_player_widget.slider_timeline.setValue(0)
     main_window.basic_tab.video_player_widget.lbl_time.setText("00:00:00.000 / 00:00:00.000")

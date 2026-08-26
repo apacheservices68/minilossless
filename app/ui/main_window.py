@@ -36,6 +36,7 @@ from app.ui.utils import (
     show_close_video_help
 )
 from app.ui.tracks_dialog import TracksDialog
+from app.ui.components.video_source_widget import VideoSourceWidget
 from app.ui.components.video_player_widget import VideoPlayerWidget
 from app.ui.components.track_control_widget import TrackControlWidget
 from app.ui.components.snapshot_widget import SnapshotWidget
@@ -59,17 +60,9 @@ class BasicCutTab(QWidget):
         left_layout = QVBoxLayout()
         main_layout.addLayout(left_layout, 3)
 
-        file_group = QGroupBox("Video Input Source")
-        file_layout = QHBoxLayout()
-        self.lbl_video_path = QLabel("No video selected. Click 'Open Video' to select one.")
-        self.lbl_video_path.setWordWrap(True)
-        btn_open = QPushButton("Open Video")
-        btn_open.setObjectName("btn_open")
-        btn_open.clicked.connect(self.open_video)
-        file_layout.addWidget(self.lbl_video_path, 1)
-        file_layout.addWidget(btn_open)
-        file_group.setLayout(file_layout)
-        left_layout.addWidget(file_group)
+        self.video_source_widget = VideoSourceWidget(self)
+        self.video_source_widget.file_selected.connect(self.main_window.set_active_video)
+        left_layout.addWidget(self.video_source_widget)
 
         self.track_control_widget = TrackControlWidget(self)
         left_layout.addWidget(self.track_control_widget)
@@ -161,13 +154,15 @@ class BasicCutTab(QWidget):
             self.main_window.set_active_video(file_path)
 
     def set_video_path_only(self, file_path):
-        self.lbl_video_path.setText(f"Selected: {os.path.basename(file_path)}\nFull Path: {file_path}")
+        # self.lbl_video_path.setText(f"Selected: {os.path.basename(file_path)}\nFull Path: {file_path}")
+        self.video_source_widget.set_video_path(file_path)
         self.video_player_widget.player.setSource(QUrl.fromLocalFile(file_path))
         self.segments = []
         self.update_segments_table_without_save()
 
     def reset_tab(self):
-        self.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
+        # self.lbl_video_path.setText("No video selected. Click 'Open Video' to select one.")
+        self.video_source_widget.set_video_path("")
         self.video_player_widget.player.setSource(QUrl())
         self.video_player_widget.slider_timeline.setRange(0, 0)
         self.video_player_widget.slider_timeline.setValue(0)
@@ -346,9 +341,14 @@ class BasicCutTab(QWidget):
             QMessageBox.warning(self, "Warning", "No segments defined to export.")
             return
 
-        dest_dir = QFileDialog.getExistingDirectory(
+        """ dest_dir = QFileDialog.getExistingDirectory(
             self, "Select Directory to Save Exported Files", os.path.dirname(self.main_window.selected_video_path)
-        )
+        ) """
+        
+
+        folder, filename = os.path.split(self.main_window.selected_video_path)
+        # name, ext = os.path.splitext(filename)
+        dest_dir = os.path.join(folder)
         if not dest_dir:
             return
 
@@ -372,7 +372,7 @@ class BasicCutTab(QWidget):
                 self
             )
             self.smart_worker.log_signal.connect(self.log)
-            self.smart_worker.finished_signal.connect(lambda msg: QMessageBox.information(self, "Export Finished", msg))
+            # self.smart_worker.finished_signal.connect(lambda msg: QMessageBox.information(self, "Export Finished", msg))
             self.smart_worker.error_signal.connect(lambda err: QMessageBox.critical(self, "Export Error", err))
             self.smart_worker.start()
             return
@@ -400,10 +400,8 @@ class BasicCutTab(QWidget):
                         tracks=options.get("tracks"),
                         progress_callback=lambda status, progress: self.log(f"[Cut] {status} at {progress}%")
                     )
-
                 final_message = f"Successfully exported {len(self.segments)} separate files."
                 self.log(final_message)
-                QMessageBox.information(self, "Export Finished", final_message)
 
             elif export_mode == "merge":
                 temp_files = []
@@ -443,7 +441,6 @@ class BasicCutTab(QWidget):
                 
                 final_message = f"Successfully merged segments into {output_filename}."
                 self.log(final_message)
-                QMessageBox.information(self, "Export Finished", final_message)
 
         except Exception as e:
             error_message = f"An error occurred during export: {str(e)}"
@@ -457,10 +454,14 @@ class BasicCutTab(QWidget):
             return
 
         position = self.cb_position.currentData()
-        ext = os.path.splitext(self.main_window.selected_video_path)[1]
+        """ ext = os.path.splitext(self.main_window.selected_video_path)[1]
         output_path, _ = QFileDialog.getSaveFileName(
             self, "Save Watermarked Video As", f"watermark_output{ext}", f"Video Files (*{ext});;All Files (*)"
-        )
+        ) """
+
+        folder, filename = os.path.split(self.main_window.selected_video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_watermark_output{ext}")
         if not output_path:
             return
 
@@ -494,9 +495,9 @@ class BasicCutTab(QWidget):
 
         # 3. Kết nối Signal
         self.watermark_worker.log_signal.connect(self.log)
-        self.watermark_worker.finished_signal.connect(
+        """ self.watermark_worker.finished_signal.connect(
             lambda msg: QMessageBox.information(self, "Success", msg)
-        )
+        ) """
         self.watermark_worker.error_signal.connect(
             lambda err: QMessageBox.critical(self, "Error", err)
         )
@@ -526,7 +527,6 @@ class BasicCutTab(QWidget):
         try:
             ffmpeg_service.merge_videos(file_paths, output_path)
             self.log(f"Successfully merged videos into: {output_path}")
-            QMessageBox.information(self, "Success", "Videos merged successfully!")
         except Exception as e:
             self.log(f"Error merging videos: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to merge videos:\n{str(e)}")
@@ -612,7 +612,7 @@ class BasicCutTab(QWidget):
                 use_png=use_png
             )
             self.log(f"Successfully saved snapshot to {output_path}")
-            QMessageBox.information(self, "Success", f"Snapshot saved to:\n{output_path}")
+            # QMessageBox.information(self, "Success", f"Snapshot saved to:\n{output_path}")
         except Exception as e:
             self.log(f"Error taking snapshot: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to take snapshot:\n{str(e)}")
