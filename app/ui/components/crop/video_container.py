@@ -11,9 +11,9 @@ class VideoContainer(QWidget):
         self.aspect_ratio = 16 / 9.0
         self.h_ruler = None
         self.v_ruler = None
-        self.PREVIEW_DEFAULT = 720
+        self.PREVIEW_DEFAULT = 640
         self.PREVIEW_MAX_W = 1280
-        self.PREVIEW_MAX_H = 720
+        self.PREVIEW_MAX_H = 640
         self.setContentsMargins(0, 0, 0, 0)
 
     def set_h_ruler(self, ruler):

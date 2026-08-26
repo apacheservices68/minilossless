@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 
 from app.services.audio_worker import AudioWorker
 from app.ui.components.audio.segment_manager_widget import SegmentManagerWidget
+from app.ui.components.video_source_widget import VideoSourceWidget
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
     handle_player_position_changed, handle_player_duration_changed
@@ -18,16 +19,30 @@ class AudioProcessingTab(QWidget):
     log_message = pyqtSignal(str)
     auto_save_needed = pyqtSignal()
     
-    def __init__(self, parent=None):
+    def __init__(self, main_window=None,  parent=None):
         super().__init__(parent)
+        self.main_window = main_window
         self.setObjectName("AudioProcessingTab")
         self.video_path = None
 
         # Main layout
         main_layout = QHBoxLayout(self)
 
+        # Left side container
+        left_container = QWidget()
+        left_layout = QVBoxLayout(left_container)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+
+        # 1. Khởi tạo VideoSourceWidget
+        self.video_source_widget = VideoSourceWidget(self)
+        if hasattr(self.main_window, 'set_active_video'):
+            self.video_source_widget.file_selected.connect(self.main_window.set_active_video)
+
         # Left side: Player and Segment Manager
         self.left_widget = PlayerSegmentWidget()
+
+        left_layout.addWidget(self.video_source_widget)
+        left_layout.addWidget(self.left_widget)        
 
         # Right side: Controls and Export
         right_widget = QWidget()
@@ -41,7 +56,7 @@ class AudioProcessingTab(QWidget):
 
         # Splitter to make layout adjustable
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.left_widget)
+        splitter.addWidget(left_container)
         splitter.addWidget(right_widget)
         splitter.setSizes([700, 300]) # Initial size distribution
 
@@ -166,10 +181,15 @@ class AudioProcessingTab(QWidget):
 
     def set_video_path_only(self, video_path):
         self.video_path = video_path
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path(video_path)
         self.left_widget.set_video(video_path)
 
     def reset_ui(self):
         self.video_path = None
+        # Reset VideoSourceWidget
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path("")
         self.left_widget.video_player.reset_player()
         self.segment_manager.reset_ui()
         self.mute_controls.reset_ui()

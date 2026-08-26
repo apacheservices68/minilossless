@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QRect
 from app.core.helpers import get_media_info
 from app.services.crop_worker import CropWorker
 from app.ui.components.crop.player_control_widget import PlayerControlsWidget
+from app.ui.components.video_source_widget import VideoSourceWidget
 from app.ui.utils import get_formatted_time_str, toggle_play_pause, handle_player_position_changed, handle_player_duration_changed
 from app.ui.components.crop.crop_video_player_widget import CropVideoPlayerWidget
 from .crop_overlay_widget import CropOverlayWidget
@@ -45,6 +46,12 @@ class CropVideoTab(QWidget):
         left_grid.setSpacing(0)
         left_grid.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
+        # --- 1. THÊM VIDEO SOURCE WIDGET VÀO ĐÂY ---
+        self.video_source_widget = VideoSourceWidget(self)
+        self.video_source_widget.file_selected.connect(self.main_window.set_active_video)
+        # Đưa VideoSourceWidget vào cột 1 (chiếm 2 cột từ 0 đến 1) ở hàng 0
+        left_grid.addWidget(self.video_source_widget, 0, 0, 1, 2)
+
         self.h_ruler = RulerWidget(Qt.Orientation.Horizontal)
         self.v_ruler = RulerWidget(Qt.Orientation.Vertical)
 
@@ -55,20 +62,20 @@ class CropVideoTab(QWidget):
         self.video_container.set_video_widget(self.video_player_widget.view, self.overlay_widget)
 
         # Add các widget vào Grid chuẩn vị trí
-        left_grid.addWidget(QWidget(), 0, 0)  # Corner widget
-        left_grid.addWidget(self.h_ruler, 0, 1)
-        left_grid.addWidget(self.v_ruler, 1, 0)
-        left_grid.addWidget(self.video_container, 1, 1)
+        left_grid.addWidget(QWidget(), 1, 0)  # Corner widget (hàng 1)
+        left_grid.addWidget(self.h_ruler, 1, 1) # (hàng 1)
+        left_grid.addWidget(self.v_ruler, 2, 0) # (hàng 2)
+        left_grid.addWidget(self.video_container, 2, 1) # (hàng 2)
 
         # Initialize separate controls widget
         self.player_controls = PlayerControlsWidget()
 
         # Add to left_grid in row 2
-        left_grid.addWidget(self.player_controls, 2, 1)
+        left_grid.addWidget(self.player_controls, 3, 1)
 
         # Set row stretch factors to prioritize video expansion
-        left_grid.setRowStretch(1, 1)
-        left_grid.setRowStretch(2, 0)
+        left_grid.setRowStretch(2, 1)  # Cập nhật stretch cho row 2 chứa video container
+        left_grid.setRowStretch(3, 0)
 
         # Right Layout (Controls)
         self.right_layout = RightLayoutWidget()
@@ -234,6 +241,8 @@ class CropVideoTab(QWidget):
 
     def set_video_path_only(self, file_path):
         self.current_video_path = file_path
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path(file_path)
         self.log_message.emit(f"Crop tab received video: {file_path}")
         self.video_player_widget.load_video(file_path)
         try:
@@ -278,7 +287,11 @@ class CropVideoTab(QWidget):
             self.crop_worker.cancel()
             self.crop_worker.wait()
             self.crop_worker = None
-        self.video_path = None
+        # self.video_path = None
+        self.current_video_path = None
+        # Reset VideoSourceWidget
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path("")
         self.video_player_widget.reset_player()
         self.overlay_widget.reset_ui()
         self.right_layout.reset_ui()
