@@ -91,12 +91,12 @@ class VideoContainer(QWidget):
             self.v_ruler.setFixedHeight(target_h)
 
         # Tìm chính xác class CropVideoTab ở cấp cha
-        parent_tab = self.parent()
+        """ parent_tab = self.parent()
         while parent_tab and not hasattr(parent_tab, 'player_controls'):
             parent_tab = parent_tab.parent()
 
         if parent_tab and hasattr(parent_tab, 'player_controls'):
-            parent_tab.player_controls.setFixedWidth(target_w)
+            parent_tab.player_controls.setFixedWidth(target_w) """
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

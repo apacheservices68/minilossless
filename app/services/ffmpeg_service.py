@@ -1,12 +1,15 @@
-import subprocess
 import os
+import json
 import tempfile
+import subprocess
 import cv2
 import numpy as np
-import json
 import ffmpeg
+from PIL import Image, ImageDraw, ImageFont
+
+from app.core.constants import BASE_DIR
 from app.core.watermark_constants import WATERMARK_POSITIONS
-from app.services.exact_cut_service import exact_cut as exact_cut_video
+from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
 from app.core.ffmpeg_config import (
     get_ffmpeg_cut_cmd,
     get_ffmpeg_watermark_cmd,
@@ -16,7 +19,10 @@ from app.core.ffmpeg_config import (
     get_ffmpeg_export_cmd,
     get_ffmpeg_merge_cmd
 )
-from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
+from app.services.exact_cut_service import exact_cut as exact_cut_video
+from app.ai.detectors import get_face_detector, get_selfie_segmenter
+from app.ai.pipeline import AIPipeline
+
 
 def get_video_info(input_path: str) -> dict:
     """Run ffprobe to get video info."""
@@ -28,7 +34,6 @@ def get_video_info(input_path: str) -> dict:
         "-show_format", "-show_streams", input_path
     ]
     try:
-        # THÊM: stdin=subprocess.DEVNULL
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return json.loads(result.stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
@@ -36,9 +41,7 @@ def get_video_info(input_path: str) -> dict:
         return {}
 
 def parse_time_to_seconds(t_str: str) -> float:
-    """
-    Parse HH:MM:SS or HH:MM:SS.mmm or MM:SS or SS format to seconds (float).
-    """
+    """Parse HH:MM:SS or HH:MM:SS.mmm or MM:SS or SS format to seconds (float)."""
     t_str = t_str.strip()
     if not t_str:
         return 0.0
@@ -56,9 +59,7 @@ def parse_time_to_seconds(t_str: str) -> float:
         return 0.0
 
 def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
-    """
-    Format float seconds to HH:MM:SS.mmm or HH:MM:SS.
-    """
+    """Format float seconds to HH:MM:SS.mmm or HH:MM:SS."""
     if sec < 0:
         sec = 0.0
     h = int(sec // 3600)
@@ -82,7 +83,6 @@ def format_seconds_to_time(sec: float, include_ms: bool = True) -> str:
 
 def cut_video(input_path: str, output_path: str, start_time: str, end_time: str, duration: float, is_smart_cut: bool = False, tracks: list = None, audio_codec: str = "copy", progress_callback=None) -> bool:
     if is_smart_cut:
-        # Smart cut handles its own exceptions and progress
         return exact_cut_video(input_path, output_path, start_time, duration, tracks, progress_callback=progress_callback)
 
     try:
@@ -90,7 +90,6 @@ def cut_video(input_path: str, output_path: str, start_time: str, end_time: str,
             progress_callback("cutting", 50)
 
         cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time, tracks, audio_codec)
-        # SỬA: Thêm stdin=subprocess.DEVNULL và giữ nguyên capture_output=True, text=True
         result = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, text=True, check=True)
         
         if progress_callback:
@@ -100,21 +99,18 @@ def cut_video(input_path: str, output_path: str, start_time: str, end_time: str,
     except subprocess.CalledProcessError as e:
         error_message = f"FFmpeg lossless_cut failed with return code {e.returncode}.\nOutput:\n{e.stdout}\nError:\n{e.stderr}"
         print(error_message)
-        raise Exception(error_message) # Re-raise with a more informative message
+        raise Exception(error_message)
     except FileNotFoundError as e:
         error_message = f"ffmpeg command not found: {e}. Ensure ffmpeg is in your system's PATH."
         print(error_message)
         raise Exception(error_message)
     except Exception as e:
-        # Catch any other unexpected errors
         error_message = f"An unexpected error occurred during lossless_cut: {e}"
         print(error_message)
         raise Exception(error_message)
 
 def merge_videos(video_paths: list[str], output_path: str) -> bool:
-    """
-    Merge multiple videos of the same format without re-encoding using concat demuxer.
-    """
+    """Merge multiple videos of the same format without re-encoding using concat demuxer."""
     if not video_paths:
         raise ValueError("No video files provided for merging.")
     
@@ -123,12 +119,10 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as f:
             temp_list = f.name
             for path in video_paths:
-                # To handle paths with spaces or special characters, wrap them in single quotes.
                 safe_path = path.replace("'", "'\\''")
                 f.write(f"file '{safe_path}'\n")
         
         cmd = get_ffmpeg_merge_cmd(temp_list, output_path)
-        # THÊM: stdin=subprocess.DEVNULL
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -139,11 +133,7 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
             os.remove(temp_list)
 
 def create_text_watermark_image(text: str, output_image_path: str) -> None:
-    """
-    Render text to a transparent PNG file using Pillow with white text and black outline.
-    """
-    from PIL import Image, ImageDraw, ImageFont
-    
+    """Render text to a transparent PNG file using Pillow with white text and black outline."""
     font_names = ["DejaVuSans.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "FreeSans.ttf"]
     font = None
     for name in font_names:
@@ -194,20 +184,15 @@ def create_text_watermark_image(text: str, output_image_path: str) -> None:
     img.save(output_image_path, "PNG")
 
 def watermark_video(input_path: str, output_path: str, text: str, position: str) -> bool:
-    """
-    Add a text watermark to video using Pillow-generated image and FFmpeg overlay.
-    """
+    """Add a text watermark to video using Pillow-generated image and FFmpeg overlay."""
     temp_watermark = "temp_watermark.png"
     
     try:
         create_text_watermark_image(text, temp_watermark)
-        
-        #### 081326 fix bug call from watermark constant
         position_info = WATERMARK_POSITIONS.get(position, {})
         coords = position_info.get("expr", "x=10:y=10")
         
         cmd = get_ffmpeg_watermark_cmd(input_path, output_path, temp_watermark, coords)
-        # THÊM: stdin=subprocess.DEVNULL
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -240,9 +225,7 @@ def process_video_ai(
     *args,    
     **kwargs
 ):
-    """
-    Run the AI process pipeline using Subprocess Popen to push processed frames into FFmpeg.
-    """
+    """Run the AI process pipeline using Subprocess Popen to push processed frames into FFmpeg."""
     input_video_path = input_video_path or kwargs.get("input_path")
     output_video_path = output_video_path or kwargs.get("output_path")
     texts = texts if texts is not None else []
@@ -262,21 +245,10 @@ def process_video_ai(
                 except Exception:
                     pass
 
-    from app.core.constants import BASE_DIR
     temp_watermark_path = os.path.join(BASE_DIR, "temp_wm.png")
     
-    detector = None
-    segmenter = None
-    
-    if face_blur_enabled:
-        from app.ai.detectors import get_face_detector
-        detector = get_face_detector()
-            
-    if bg_blur_enabled:
-        from app.ai.detectors import get_selfie_segmenter
-        segmenter = get_selfie_segmenter()
-
-    from app.ai.pipeline import AIPipeline
+    detector = get_face_detector() if face_blur_enabled else None
+    segmenter = get_selfie_segmenter() if bg_blur_enabled else None
     pipeline = AIPipeline(detector=detector, segmenter=segmenter)
 
     cap = cv2.VideoCapture(input_video_path)
@@ -299,6 +271,7 @@ def process_video_ai(
     process = None
     try:
         if texts:
+            # Giữ inline import cho hàm này để tránh Circular Import với ai_processor.py
             from app.services.ai_processor import create_advanced_watermark_image
             create_advanced_watermark_image(
                 width, height, texts, temp_watermark_path, 
@@ -397,9 +370,7 @@ def process_video_ai(
             segmenter.close()
 
 def get_video_fps(input_path: str) -> float:
-    """
-    Get the FPS of a video file.
-    """
+    """Get the FPS of a video file."""
     try:
         ffprobe_path = get_ffprobe_path()
         if not ffprobe_path:
@@ -416,9 +387,7 @@ def get_video_fps(input_path: str) -> float:
     return 0.0
 
 def take_snapshot(input_path: str, output_path: str, time: str, quality: int, format: str) -> bool:
-    """
-    Take a snapshot of a video at a specific time.
-    """
+    """Take a snapshot of a video at a specific time."""
     try:
         if format.lower() == 'jpg':
             q_value = int(31 - (quality / 100.0) * 29)
@@ -426,7 +395,6 @@ def take_snapshot(input_path: str, output_path: str, time: str, quality: int, fo
             q_value = 0
 
         cmd = get_ffmpeg_snapshot_cmd(input_path, output_path, time, q_value, format)
-        # THÊM: stdin=subprocess.DEVNULL
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
@@ -437,7 +405,6 @@ def export_video(input_path: str, output_path: str, options: dict) -> bool:
     """Export video with various options (FPS, tracks, metadata)."""
     try:
         cmd = get_ffmpeg_export_cmd(input_path, output_path, options)
-        # THÊM: stdin=subprocess.DEVNULL
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
