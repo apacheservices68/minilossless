@@ -1,4 +1,3 @@
-
 import traceback
 import subprocess
 import os
@@ -12,8 +11,6 @@ from app.services.audio_service import AudioService
 from app.core import audio_constants as const
 
 class AudioWorker(QThread):
-    """Worker thread for handling long-running audio processing tasks."""
-
     progress = pyqtSignal(int)
     log = pyqtSignal(str)
     finished = pyqtSignal(bool, str) # success, output_path
@@ -25,16 +22,30 @@ class AudioWorker(QThread):
         self.settings = settings
         self.audio_service = AudioService()
         self._is_running = True
+        self._is_cancelled = False  # <--- BỔ SUNG CỜ HỦY
+        self.process = None          # <--- LƯU TIẾN TRÌNH SUBPROCESS
+
+    def cancel(self):
+        """Hủy worker và kill ngay tiến trình FFmpeg đang chạy."""
+        self._is_cancelled = True
+        self._is_running = False
+        if self.process and self.process.poll() is None:
+            try:
+                self.process.kill()
+            except Exception:
+                pass
 
     def stop(self):
-        self._is_running = False
+        self.cancel()
 
     def run(self):
-        """The entry point for the thread. All processing happens here."""
         audio_file = None
         filter_script_path = None
         audio_filter = None
         try:
+            if self._is_cancelled:
+                self.finished.emit(False, "Process cancelled by user.")
+                return
             self.log.emit("[INFO] Bắt đầu xử lý âm thanh...")
             self.progress.emit(5)
 
@@ -44,13 +55,11 @@ class AudioWorker(QThread):
             is_beep = self.settings.get("replace_beep", False)
 
             if segments:
-                # Manual segment muting
                 self.log.emit(f"[INFO] Found {len(segments)} manual segments to mute.")
                 audio_filter = self.audio_service.generate_mute_filter_from_segments(segments, is_beep)
                 self.progress.emit(50)
             
             elif not mute_all:
-                # AI Smart Mute processing
                 self.log.emit("[INFO] Đang phân tích luồng âm thanh trong video bằng AI...")
                 audio_file = self.audio_service.extract_audio(self.video_file)
                 if not audio_file or not self._is_running:
@@ -58,18 +67,20 @@ class AudioWorker(QThread):
                 self.progress.emit(25)
 
                 intervals = []
-                if smart_mute and audio_file and self._is_running:
+                if smart_mute and audio_file:
                     intervals = self.audio_service.find_speech_intervals(
                         audio_file,
                         self.settings.get("threshold", const.THRESHOLD_DEFAULT),
                         self.settings.get("min_duration", const.DURATION_DEFAULT),
                         self.settings.get("padding", const.PADDING_DEFAULT)
                     )
-                    self.log.emit(f"[INFO] Đã phát hiện {len(intervals)} đoạn giọng nói. Đang tiến hành xử lý và render video đầu ra...")
+                    self.log.emit(f"[INFO] Đã phát hiện {len(intervals)} đoạn giọng nói...")
                 self.progress.emit(50)
 
-                if not self._is_running: return
-                total_duration = self.get_video_duration()
+                try:
+                    total_duration = self.get_video_duration()
+                except Exception:
+                    total_duration = 0.0
                 
                 ffmpeg_script_content = ""
                 if smart_mute and intervals:
@@ -82,26 +93,24 @@ class AudioWorker(QThread):
                         filter_script_path = tmp_file.name
                         tmp_file.write(f"[0:a]{ffmpeg_script_content}[a]")
 
-            
+            if self._is_cancelled or not self._is_running: return
             self.progress.emit(60)
 
-            # Step 4: Run FFmpeg to export the final video
-            if not self._is_running: return
             self.log.emit("[INFO] Đang áp dụng bộ lọc và render video...")
             self.run_ffmpeg_export(filter_script_path, mute_all, audio_filter)
-            self.progress.emit(100)
             
-            if self._is_running:
-                self.log.emit(f"[INFO] Đã xuất video thành công: {self.output_path}")
-                self.finished.emit(True, self.output_path)
+            self.progress.emit(100)
+            self.log.emit(f"[INFO] Đã xuất video thành công: {self.output_path}")
+            self.finished.emit(True, self.output_path)
 
         except Exception as e:
-            err_msg = traceback.format_exc()
-            self.log.emit(f"[LỖI] Đã xảy ra lỗi:\n{err_msg}")
-            self.finished.emit(False, str(e))
+            if not self._is_cancelled:
+                err_msg = traceback.format_exc()
+                self.log.emit(f"[LỖI] Đã xảy ra lỗi:\n{err_msg}")
+                self.finished.emit(False, str(e))
 
         finally:
-            # Step 5: Clean up temporary files
+            # Clean up temporary files
             cleaned = False
             if audio_file and os.path.exists(audio_file):
                 try:
@@ -133,7 +142,7 @@ class AudioWorker(QThread):
             command = [
                 FFMPEG_PATH, "-y", "-i", self.video_file,
                 FFMPEG_COMMANDS.VIDEO_CODEC, "copy",
-                FFMPEG_CONFIGS["A_MUTE"],  # No audio
+                FFMPEG_CONFIGS["A_MUTE"],
                 self.output_path
             ]
         elif audio_filter:
@@ -152,35 +161,33 @@ class AudioWorker(QThread):
                 FFMPEG_COMMANDS.VIDEO_CODEC, "copy",
                 self.output_path
             ]
-        else:  # No audio processing needed, just copy the original video
-            self.log.emit("[INFO] No audio processing needed. Copying video stream directly.")
+        else:
             command = [FFMPEG_PATH, "-y", "-i", self.video_file, FFMPEG_COMMANDS.VIDEO_CODEC, "copy", FFMPEG_COMMANDS.AUDIO_CODEC, "copy", self.output_path]
 
-        cmd_str = " ".join(command)
-
-        # self.log.emit(f"[DEBUG] Running FFmpeg command: {cmd_str}")
-
         try:
-            # Using subprocess.run to wait for completion and capture output
-            # This is better for preventing hung processes.
-            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding="utf-8")
+            # Dùng Popen để theo dõi & hỗ trợ cancel
+            self.process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                encoding="utf-8",
+                errors="replace"
+            )
 
-            for line in result.stdout:
+            for line in self.process.stdout:
                 if self._is_cancelled:
-                    result.kill()
+                    self.process.kill()
                     self.finished.emit(False, "Process cancelled by user.")
                     return
 
-                ## Add on 08252026 
-                if (pct := parse_ffmpeg_progress(line, self.duration_sec)) is not None:
-                    self.progress.emit(pct)
+            self.process.wait()
+            if self.process.returncode != 0 and not self._is_cancelled:
+                raise Exception(f"FFmpeg process exited with code {self.process.returncode}")
 
-        except subprocess.CalledProcessError as e:
-            self.log.emit("--- FFmpeg Error Output ---")
-            # The full stderr is captured, which is useful for debugging
-            self.log.emit(e.stderr)
-            self.log.emit("---------------------------")
-            raise Exception("FFmpeg export failed. See log for details.")
+        except Exception as e:
+            if not self._is_cancelled:
+                raise Exception(f"FFmpeg export failed: {e}")
 
     def __del__(self):
         self.wait()

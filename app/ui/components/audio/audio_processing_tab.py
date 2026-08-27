@@ -187,6 +187,11 @@ class AudioProcessingTab(QWidget):
 
     def reset_ui(self):
         self.video_path = None
+        if hasattr(self, 'audio_worker') and self.audio_worker and self.audio_worker.isRunning():
+            self.audio_worker.cancel()
+            self.audio_worker.quit()
+            self.audio_worker.wait(2000)
+            self.audio_worker = None
         # Reset VideoSourceWidget
         if hasattr(self, 'video_source_widget'):
             self.video_source_widget.set_video_path("")
