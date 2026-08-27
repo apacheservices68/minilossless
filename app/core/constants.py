@@ -63,11 +63,17 @@ class FFMPEG_COMMANDS:
     ## Add on 08232026 Additional FFmpeg flags
     RC_OPTION = "-rc:v"
     QP_OPTION = "-qp"
+    CQ_OPTION = "-cq"
     G_OPTION = "-g"
     SCENECUT_OPTION = "-no-scenecut"
+    MULTIPASS_OPTION = "-multipass"
+    MAXRATE_OPTION = "-maxrate:v"
+    BUFFSIZE_OPTION = "-bufsize:v"
     ## Add on 08242026
     VIDEO_FILTER_L = "-filter:v"
+    CUDA_VIDEO_FILTER_L = "-vf"
     HARDWARE_ACCE = "-hwaccel"
+    HARDWARE_OUTPUT_ACCE = "-hwaccel_output_format"
     HIGH_QUALITY_TUNE = "-tune"
     SPATIAL_AQ = "-spatial_aq"
     TEMPORAL_AQ = "-temporal_aq"

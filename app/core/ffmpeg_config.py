@@ -40,17 +40,21 @@ FFMPEG_CONFIGS = {
 
     # CUDA Optional Parameters for bitrate, QP, and gop size 
     "BITRATE": None,
-    "QP": "24",
+    "QP": "26",
     "GOP_SIZE": "60",
     ## Add on 08232026 
-    "RC_VALUE": "constqp",
+    "RC_VALUE": "vbr",
     "SCENECUT" : None,
     "MAX_MUTE_QUEUE_VAL" : "9999",
     "TUNE_VAL" : "6",
     "SPATIAL_VAL": "1",
     "TEMPORAL_VAL": "1",
     "LOOKAHEAD_VAL" : "32",
-    "A_MUTE" : "-an"
+    "A_MUTE" : "-an",
+    "MULTIPASS_VAL" : "qres",
+    "CQ": "28",
+    "MAXRATE_VAL" : "12M",
+    "BUFFSIZE_VAL" : "12M"
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -229,12 +233,10 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
 
 def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
 
-    FFMPEG_GPU_PRESET = "p6"
-    FFMPEG_GPU_CQ = "20"
 
     # Command Template CPU
     FFMPEG_CROP_CPU_CMD = [
-        FFMPEG_PATH, "-y",
+        FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
         FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
@@ -247,17 +249,17 @@ def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
 
     # Command Template GPU (NVIDIA NVENC)
     FFMPEG_CROP_GPU_CMD = [
-        FFMPEG_PATH, FFMPEG_COMMANDS.HARDWARE_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"], "-y",
+        FFMPEG_PATH, FFMPEG_COMMANDS.HARDWARE_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"],
+        FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
         FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
-        FFMPEG_COMMANDS.PRESET, FFMPEG_GPU_PRESET,
+        FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"],
         # "-tune", "hq", # USe for VBR
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.NVENC_H264,
-        # "-rc", "vbr_hq",
-        # "-cq", FFMPEG_GPU_CQ,
         FFMPEG_COMMANDS.RC_OPTION, FFMPEG_CONFIGS["RC_VALUE"],
-        FFMPEG_COMMANDS.QP_OPTION, FFMPEG_CONFIGS["QP"],
+        FFMPEG_COMMANDS.MULTIPASS_OPTION , FFMPEG_CONFIGS["MULTIPASS_VAL"],
+        FFMPEG_COMMANDS.CQ_OPTION, FFMPEG_CONFIGS["CQ"],
         FFMPEG_COMMANDS.SPATIAL_AQ, FFMPEG_CONFIGS["SPATIAL_VAL"],
         FFMPEG_COMMANDS.TEMPORAL_AQ, FFMPEG_CONFIGS["TEMPORAL_VAL"],
         # "-rc-lookahead", "32",
