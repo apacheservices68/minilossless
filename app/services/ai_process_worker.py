@@ -22,6 +22,8 @@ class AIProcessWorker(QThread):
         self.face_blur_style = face_blur_style
         self.face_blur_strength = face_blur_strength
 
+        self._is_cancelled = False
+
     def run(self):
         signals = AIProcessorSignals()
         signals.progress.connect(self.progress.emit)
@@ -40,7 +42,11 @@ class AIProcessWorker(QThread):
                 face_blur_strength=self.face_blur_strength,
                 bg_blur_enabled=self.bg_blur,
                 bg_blur_strength=self.bg_blur_strength,
-                signals=signals
+                signals=signals,
+                worker=self
             )
         except Exception as e:
             self.finished.emit(False, str(e))
+
+    def cancel(self):
+        self._is_cancelled = True  # <--- BỔ SUNG

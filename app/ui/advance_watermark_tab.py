@@ -10,6 +10,7 @@ from app.ui.components.video_player_preview_widget import VideoPlayerPreviewWidg
 from app.ui.components.text_overlay_editor_widget import TextOverlayEditorWidget
 from app.ui.components.ai_filters_widget import AIFiltersWidget
 from app.ui.components.export_pipeline_widget import ExportPipelineWidget
+from app.ui.components.video_source_widget import VideoSourceWidget
 from app.core.helpers import check_cuda_support, calculate_relative_text_overlays
 from app.core.watermark_constants import (
     DEFAULT_FONT_PATH, DEFAULT_FONT_FAMILY, 
@@ -23,9 +24,18 @@ class AdvanceWatermarkTab(QWidget):
     def init_ui(self):
         main_layout = QHBoxLayout(self)
         
-        # Left Panel
+        # Left Panel (Video Source + Player Preview)
+        left_layout = QVBoxLayout()
+        
+        self.video_source_widget = VideoSourceWidget(self)
+        if hasattr(self.main_window, 'set_active_video'):
+            self.video_source_widget.file_selected.connect(self.main_window.set_active_video)
+        left_layout.addWidget(self.video_source_widget)
+
         self.video_player_widget = VideoPlayerPreviewWidget(self)
-        main_layout.addWidget(self.video_player_widget, 3)
+        left_layout.addWidget(self.video_player_widget, 1)
+
+        main_layout.addLayout(left_layout, 3)
         
         # Right Panel
         right_layout = QVBoxLayout()
@@ -40,9 +50,9 @@ class AdvanceWatermarkTab(QWidget):
         self.export_widget = ExportPipelineWidget(self)
         right_layout.addWidget(self.export_widget)
 
-    def __init__(self, parent=None):
+    def __init__(self, main_window=None, parent=None):
         super().__init__(parent)
-        
+        self.main_window = main_window
         font_id = QFontDatabase.addApplicationFont(DEFAULT_FONT_PATH)
         if font_id != -1:
             self.app_font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
@@ -92,6 +102,8 @@ class AdvanceWatermarkTab(QWidget):
 
     def set_video_path_only(self, path):
         self.selected_video_path = path
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path(path)
         self.video_player_widget.set_video(path)
 
         for item in self.text_items:
@@ -335,12 +347,15 @@ class AdvanceWatermarkTab(QWidget):
     def reset_tab(self):
         # 1. Hủy worker nếu AI đang chạy ngầm
         if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
-            self.worker.terminate()
-            self.worker.wait()
+            self.worker.cancel()  # <--- Đổi terminate() thành cancel()
+            self.worker.quit()
+            self.worker.wait(2000) 
             self.worker = None
 
         # 2. Reset các biến dữ liệu
         self.selected_video_path = ""
+        if hasattr(self, 'video_source_widget'):
+            self.video_source_widget.set_video_path("")
         self.text_items.clear()
         self.selected_item = None
         

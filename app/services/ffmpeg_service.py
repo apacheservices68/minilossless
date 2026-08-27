@@ -295,9 +295,13 @@ def process_video_ai(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
-        
+
+        worker = kwargs.get("worker", None)
         frame_idx = 0
         while True:
+            if worker and getattr(worker, '_is_cancelled', False):  # <--- BỔ SUNG
+                print("Processing cancelled by user.")
+                break
             ret, frame = cap.read()
             if not ret:
                 break
