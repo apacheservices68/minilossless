@@ -30,6 +30,7 @@ from app.services.smartcut_service import SmartCutWorker
 from app.ui.advance_watermark_tab import AdvanceWatermarkTab
 from app.ui.components.audio.audio_processing_tab import AudioProcessingTab
 from app.ui.components.crop.crop_video_tab import CropVideoTab
+from app.ui.components.utils.resize_rotate_tab import ResizeRotateTab
 from app.ui.utils import (
     toggle_play_pause, get_formatted_time_str,
     handle_player_position_changed, handle_player_duration_changed,
@@ -637,9 +638,11 @@ class MainWindow(QMainWindow):
         self.advance_tab = AdvanceWatermarkTab(self)
         self.audio_tab = AudioProcessingTab(self)
         self.crop_tab = CropVideoTab(self)
+        self.resize_tab = ResizeRotateTab(self)
         self.advance_tab.log_message.connect(self.log)
         self.audio_tab.log_message.connect(self.log)
         self.crop_tab.log_message.connect(self.log)
+        self.resize_tab.log_message.connect(self.log)
 
         # Connect auto-save signals
         if hasattr(self.advance_tab, 'auto_save_needed'):
@@ -651,6 +654,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.advance_tab, "Advance Watermark & AI")
         self.tabs.addTab(self.audio_tab, "Audio Processing")
         self.tabs.addTab(self.crop_tab, "Crop Video")
+        self.tabs.addTab(self.resize_tab, "Resize & Rotate")
         main_layout.addWidget(self.tabs, 1)
 
         log_group = QGroupBox("Global Log Console")
@@ -674,6 +678,7 @@ class MainWindow(QMainWindow):
         # add on 08192026 dong bo video player / sync video player
         self.audio_tab.set_video_path_only(video_path)
         self.crop_tab.set_video_path_only(video_path)
+        self.resize_tab.set_video_path(video_path)
         self.basic_tab.load_metadata()
         
         # Step 3: Now, attempt to load the project state.
