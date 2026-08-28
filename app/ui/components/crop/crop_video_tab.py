@@ -33,6 +33,7 @@ class CropVideoTab(QWidget):
 
         self.current_video_path = None
         self.crop_worker = None
+        self.bitrate = None
         self.init_ui()
         self.connect_signals()
 

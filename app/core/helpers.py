@@ -70,6 +70,28 @@ def check_cuda_support():
         
     return False
 
+def calculate_cropped_bitrate(orig_w: int, orig_h: int, crop_w: int, crop_h: int, orig_bitrate_bps: int) -> str:
+    """
+    Tính bitrate mới dựa trên tỉ lệ diện tích crop.
+    Trả về chuỗi dạng "4166k" dùng cho cờ -b:v của FFmpeg.
+    """
+    if orig_w <= 0 or orig_h <= 0 or orig_bitrate_bps <= 0:
+        return None
+
+    orig_area = orig_w * orig_h
+    crop_area = crop_w * crop_h
+
+    # Tỉ lệ diện tích giữ lại
+    ratio = crop_area / float(orig_area)
+    
+    # Tính bitrate mới (bps -> kbps)
+    new_bitrate_kbps = int((orig_bitrate_bps * ratio) / 1000)
+    
+    # Đảm bảo bitrate không bị tụt quá thấp gây mờ hình (tối thiểu 800k)
+    new_bitrate_kbps = max(new_bitrate_kbps, 800)
+
+    return f"{new_bitrate_kbps}k"
+
 def get_media_info(file_path):
     """Lấy thông tin video resolution dùng ffprobe trực tiếp"""
     cmd = [

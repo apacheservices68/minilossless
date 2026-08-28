@@ -231,10 +231,18 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
     cmd.append(output_path)
     return cmd
 
-def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
+def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None) -> list[str]:
+    # 1. Khai báo danh sách các cờ CQ/CRF cần loại bỏ nếu có bitrate
+    remove_flags = set()
+    if bitrate:
+        remove_flags = {
+            getattr(FFMPEG_COMMANDS, "CQ_OPTION", None),
+            FFMPEG_CONFIGS.get("CQ"),
+            getattr(FFMPEG_COMMANDS, "CONSTANT_RATE_FACTOR", None),
+            FFMPEG_CONFIGS.get("CPU_CRF")
+        } - {None}
 
-
-    # Command Template CPU
+    # 2. Template CPU
     FFMPEG_CROP_CPU_CMD = [
         FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
@@ -247,14 +255,13 @@ def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
         "{output_path}"
     ]
 
-    # Command Template GPU (NVIDIA NVENC)
+    # 3. Template GPU (NVIDIA NVENC)
     FFMPEG_CROP_GPU_CMD = [
         FFMPEG_PATH, FFMPEG_COMMANDS.HARDWARE_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"],
         FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
         FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"],
-        # "-tune", "hq", # USe for VBR
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.NVENC_H264,
         FFMPEG_COMMANDS.RC_OPTION, FFMPEG_CONFIGS["RC_VALUE"],
@@ -262,11 +269,21 @@ def get_ffmpeg_crop_cmd(is_gpu = True) ->list[str]:
         FFMPEG_COMMANDS.CQ_OPTION, FFMPEG_CONFIGS["CQ"],
         FFMPEG_COMMANDS.SPATIAL_AQ, FFMPEG_CONFIGS["SPATIAL_VAL"],
         FFMPEG_COMMANDS.TEMPORAL_AQ, FFMPEG_CONFIGS["TEMPORAL_VAL"],
-        # "-rc-lookahead", "32",
         FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
         "{output_path}"
     ]
-    return FFMPEG_CROP_GPU_CMD if is_gpu else FFMPEG_CROP_CPU_CMD
+
+    # 4. Chọn template & Lọc bỏ cờ xung đột
+    raw_cmd = FFMPEG_CROP_GPU_CMD if is_gpu else FFMPEG_CROP_CPU_CMD
+    cmd = [item for item in raw_cmd if item not in remove_flags]
+
+    # 5. Chèn "-b:v <bitrate>" vào trước "{output_path}"
+    if bitrate:
+        out_idx = cmd.index("{output_path}") if "{output_path}" in cmd else len(cmd) - 1
+        cmd.insert(out_idx, "-b:v")
+        cmd.insert(out_idx + 1, bitrate)
+
+    return cmd
 
 
 def get_ffmpeg_export_cmd(input_path: str, output_path: str, options: dict) -> list[str]:
