@@ -92,6 +92,17 @@ def calculate_cropped_bitrate(orig_w: int, orig_h: int, crop_w: int, crop_h: int
 
     return f"{new_bitrate_kbps}k"
 
+def get_origin_bitrate(input_path):
+    info = get_media_info(input_path)
+    video_stream = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
+    orig_bitrate = None
+    if "bit_rate" in info.get("format", {}):
+        orig_bitrate = int(info["format"]["bit_rate"])
+    elif "bit_rate" in video_stream:
+        orig_bitrate = int(video_stream["bit_rate"])
+
+    return f"{int(orig_bitrate / 1000)}k" if orig_bitrate is not None else None
+
 def get_media_info(file_path):
     """Lấy thông tin video resolution dùng ffprobe trực tiếp"""
     cmd = [

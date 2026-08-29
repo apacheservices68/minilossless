@@ -50,6 +50,7 @@ class VideoPlayerWidget(QWidget):
         self.player.setSource(QUrl())
         self.apply_rotation_and_flip("None")
 
+
     def load_video(self, file_path):
         if file_path:
             self.player.setSource(QUrl.fromLocalFile(file_path))

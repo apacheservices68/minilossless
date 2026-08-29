@@ -134,8 +134,19 @@ def get_ffmpeg_pipe_cmd(
     temp_watermark_path: str,
     input_video_path: str,
     use_cuda: bool,
-    output_video_path: str
+    output_video_path: str,
+    bitrate: str = None
 ) -> list[str]:
+
+    # 1. Khai báo danh sách các cờ CQ/CRF cần loại bỏ nếu có bitrate
+    remove_flags = set()
+    if bitrate is not None:
+        remove_flags = {
+            getattr(FFMPEG_COMMANDS, "CQ_OPTION", None),
+            FFMPEG_CONFIGS.get("CQ"),
+            getattr(FFMPEG_COMMANDS, "CONSTANT_RATE_FACTOR", None),
+            FFMPEG_CONFIGS.get("CPU_CRF")
+        } - {None}
     """
     Build command list to push raw video frames to FFmpeg pipe.
     """
@@ -168,10 +179,10 @@ def get_ffmpeg_pipe_cmd(
         ])
         if FFMPEG_CONFIGS["BITRATE"] is not None:
             cmd.extend(["-b:v", FFMPEG_CONFIGS["BITRATE"]])
-        if FFMPEG_CONFIGS["QP"] is not None:
-            cmd.extend(["-qp", str(FFMPEG_CONFIGS["QP"])])
-        if FFMPEG_CONFIGS["SCENECUT"] is not None:
-            cmd.extend(["-no-scenecut", FFMPEG_CONFIGS["SCENECUT"]])
+        if FFMPEG_CONFIGS["CQ"] is not None:
+            cmd.extend([FFMPEG_COMMANDS.CQ_OPTION, str(FFMPEG_CONFIGS["CQ"])])
+        # if FFMPEG_CONFIGS["SCENECUT"] is not None:
+        #     cmd.extend(["-no-scenecut", FFMPEG_CONFIGS["SCENECUT"]])
         if FFMPEG_CONFIGS["SPATIAL_VAL"] is not None: 
             cmd.extend([FFMPEG_COMMANDS.SPATIAL_AQ, str(FFMPEG_CONFIGS["SPATIAL_VAL"])])
         if FFMPEG_CONFIGS["TEMPORAL_VAL"] is not None: 
@@ -191,10 +202,13 @@ def get_ffmpeg_pipe_cmd(
           # Set GOP size to 2 seconds worth of frames
         cmd.extend(["-g", str(gop_size)])
 
-    
+    final = [item for item in cmd if item not in remove_flags]
+
+    if bitrate is not None:
+        final.extend([FFMPEG_COMMANDS.VIDEO_BITRATE, str(bitrate)])
         
-    cmd.append(output_video_path)
-    return cmd
+    final.append(output_video_path)
+    return final
 
 def get_ffmpeg_exact_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str) -> list[str]:
     """Build command for a precise, re-encoded cut."""
@@ -231,7 +245,7 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
     cmd.append(output_path)
     return cmd
 
-def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None) -> list[str]:
+def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = None) -> list[str]:
     # 1. Khai báo danh sách các cờ CQ/CRF cần loại bỏ nếu có bitrate
     remove_flags = set()
     if bitrate:
@@ -242,11 +256,13 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None) -> list[str]:
             FFMPEG_CONFIGS.get("CPU_CRF")
         } - {None}
 
+    # Sửa lại thành:
+    filter = filter_str if filter_str is not None else "crop={w}:{h}:{x}:{y}"
     # 2. Template CPU
     FFMPEG_CROP_CPU_CMD = [
         FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
-        FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
+        FFMPEG_COMMANDS.VIDEO_FILTER_L, filter,
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
@@ -260,7 +276,7 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None) -> list[str]:
         FFMPEG_PATH, FFMPEG_COMMANDS.HARDWARE_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"],
         FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         "-i", "{input_path}",
-        FFMPEG_COMMANDS.VIDEO_FILTER_L, "crop={w}:{h}:{x}:{y}",
+        FFMPEG_COMMANDS.VIDEO_FILTER_L, filter,
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"],
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.NVENC_H264,

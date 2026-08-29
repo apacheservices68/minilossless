@@ -1,7 +1,10 @@
+import os
+
 from PyQt6.QtWidgets import QWidget, QHBoxLayout
 from PyQt6.QtCore import pyqtSignal, QUrl
 
 from app.core.helpers import get_media_info
+from app.services.util_worker import UtilWorker
 from app.ui.utils import get_formatted_time_str, toggle_play_pause, handle_player_position_changed, handle_player_duration_changed
 
 from .left_layout_widget import LeftLayoutWidget
@@ -47,8 +50,96 @@ class ResizeRotateTab(QWidget):
 
         # Resize/Rotate controls
         self.right_layout.rotate_block.preview_rotate_requested.connect(self.on_preview_rotate)
-        # self.right_layout.rotate_block.apply_rotate_requested.connect(self.on_apply_rotate) # Placeholder
-        # self.right_layout.resize_block.apply_button.clicked.connect(self.on_apply_resize)   # Placeholder
+        self.right_layout.rotate_block.apply_rotate_requested.connect(self.on_apply_rotate) 
+        self.right_layout.resize_block.apply_button.clicked.connect(self.on_apply_resize)
+
+    def on_apply_rotate(self, rotate_option):
+        """Kích hoạt worker với mode='rotate'"""
+        if not self.current_video_path:
+            self.log_message.emit("Please select a video file first.")
+            return
+
+        # 1. Tạm dừng player để tránh xung đột file reader với FFmpeg
+        self.left_layout.video_player_widget.player.pause()
+
+        folder, filename = os.path.split(self.current_video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_rotated{ext}")
+        player = self.left_layout.video_player_widget.player
+        duration_sec = player.duration() / 1000.0
+
+        self.right_layout.rotate_block.apply_button.setEnabled(False)
+        self.right_layout.resize_block.apply_button.setEnabled(False)
+        self.right_layout.lbl_progress_status.setText("Processing...")
+
+        if self.worker is not None:
+            self.worker.deleteLater()
+
+        # Khởi tạo Worker với mode="rotate"
+        self.worker = UtilWorker(
+            input_path=self.current_video_path,
+            output_path=output_path,
+            mode="rotate",
+            rotate_option=rotate_option,
+            duration_sec=duration_sec
+        )
+        self._start_worker()
+
+    def on_apply_resize(self):
+        """Kích hoạt worker với mode='resize'"""
+        if not self.current_video_path:
+            self.log_message.emit("Please select a video file first.")
+            return
+
+        self.left_layout.video_player_widget.player.pause()
+
+        width, height = self.right_layout.resize_block.get_values()
+        folder, filename = os.path.split(self.current_video_path)
+        name, ext = os.path.splitext(filename)
+        output_path = os.path.join(folder, f"{name}_resized{ext}")
+        player = self.left_layout.video_player_widget.player
+        duration_sec = player.duration() / 1000.0
+
+        self.right_layout.rotate_block.apply_button.setEnabled(False)
+        self.right_layout.resize_block.apply_button.setEnabled(False)
+        self.right_layout.lbl_progress_status.setText("Processing...")
+
+        if self.worker is not None:
+            self.worker.deleteLater()
+
+        # Khởi tạo Worker với mode="resize"
+        self.worker = UtilWorker(
+            input_path=self.current_video_path,
+            output_path=output_path,
+            mode="resize",
+            target_size=(width, height),
+            duration_sec=duration_sec
+        )
+        self._start_worker()
+
+    def _start_worker(self):
+        """Hàm dùng chung để chạy worker thread và nối signal"""
+        self.worker.log_signal.connect(self.log_message.emit)
+        self.worker.progress.connect(self.on_progress)  # Nối với progress bar nếu có
+        self.worker.finished_signal.connect(self.on_worker_finished)
+        self.worker.start()
+
+    def on_progress(self, percent):
+            # Cập nhật phần trăm lên nút bấm hoặc Log
+            self.right_layout.lbl_progress_status.setText(f"Processing... {percent}%")
+
+    def on_worker_finished(self, success, result_msg):
+        self.right_layout.resize_block.apply_button.setEnabled(True)
+        self.right_layout.rotate_block.apply_button.setEnabled(True)
+        self.right_layout.lbl_progress_status.setText("Idle")
+        if success:
+            self.log_message.emit(f"Process finished successfully! Output saved to: {result_msg}")
+        else:
+            self.log_message.emit(f"Process failed: {result_msg}")
+        # An toàn bộ nhớ: Lịch dọn dẹp QThread đúng chuẩn C++ Qt
+        if self.worker:
+            self.worker.deleteLater()
+            self.worker = None
 
 
     def set_video_path(self, file_path):

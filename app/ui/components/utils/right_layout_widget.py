@@ -1,6 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QLabel, QWidget, QVBoxLayout
 from .right_rotate_block_widget import RightRotateBlockWidget
 from .right_resize_block_widget import RightResizeBlockWidget
+from PyQt6.QtCore import Qt
 
 class RightLayoutWidget(QWidget):
     """
@@ -23,6 +24,10 @@ class RightLayoutWidget(QWidget):
 
         main_layout.addWidget(self.rotate_block)
         main_layout.addWidget(self.resize_block)
+        self.lbl_progress_status = QLabel("Idle")
+        self.lbl_progress_status.setText("Idle")
+        self.lbl_progress_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.lbl_progress_status)
         main_layout.addStretch()
 
         self.setLayout(main_layout)
@@ -34,3 +39,4 @@ class RightLayoutWidget(QWidget):
         """
         self.rotate_block.reset_ui()
         self.resize_block.reset_ui()
+        self.lbl_progress_status.setText("Idle")

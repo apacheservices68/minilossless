@@ -99,10 +99,14 @@ class RightResizeBlockWidget(QGroupBox):
         """
         Resets the UI elements to their default state.
         """
+        self.original_width = 0
+        self.original_height = 0
+        self.aspect_ratio = 1.0
+        
         self.width_spinbox.blockSignals(True)
         self.height_spinbox.blockSignals(True)
-        self.width_spinbox.setValue(self.original_width)
-        self.height_spinbox.setValue(self.original_height)
+        self.width_spinbox.setValue(0)
+        self.height_spinbox.setValue(0)
         self.width_spinbox.blockSignals(False)
         self.height_spinbox.blockSignals(False)
         self.keep_aspect_ratio_checkbox.setChecked(True)

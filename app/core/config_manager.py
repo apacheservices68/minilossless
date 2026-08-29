@@ -46,6 +46,10 @@ def reset_workspace(main_window):
     if hasattr(main_window, 'crop_tab'):
         main_window.crop_tab.reset_ui()
 
+    # 7. Reset ResizeRotateTab 
+    if hasattr(main_window, 'resize_tab'):
+        main_window.resize_tab.reset_ui()
+
 
 def save_project_state(main_window):
     """

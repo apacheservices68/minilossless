@@ -52,6 +52,7 @@ class FFMPEG_COMMANDS:
     AUDIO_CODEC = "-c:a"
     PRESET = "-preset"
     AUDIO_BITRATE = "-b:a"
+    VIDEO_BITRATE = "-b:v"
     CONSTANT_RATE_FACTOR = "-crf"
     PIXEL_FORMAT = "-pix_fmt"
     FRAMES_VIDEO = "-frames:v"

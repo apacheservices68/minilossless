@@ -8,6 +8,7 @@ import ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
 from app.core.constants import BASE_DIR
+from app.core.helpers import get_origin_bitrate
 from app.core.watermark_constants import WATERMARK_POSITIONS
 from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
 from app.core.ffmpeg_config import (
@@ -278,6 +279,8 @@ def process_video_ai(
                 preview_width=preview_width, 
                 preview_height=preview_height
             )
+        # Add on 09292026 Bitrate checker
+        bitrate_origin = get_origin_bitrate(input_video_path)
         
         ffmpeg_cmd = get_ffmpeg_pipe_cmd(
             width=width,
@@ -286,7 +289,8 @@ def process_video_ai(
             temp_watermark_path=temp_watermark_path,
             input_video_path=input_video_path,
             use_cuda=use_cuda,
-            output_video_path=output_video_path
+            output_video_path=output_video_path,
+            bitrate=bitrate_origin
         )
         
         process = subprocess.Popen(
