@@ -49,20 +49,20 @@ def encode_subpart(input_path: str, start_sec: float, duration_sec: float, outpu
     start_str = ffmpeg_service.format_seconds_to_time(start_sec)
     use_gpu = check_cuda_support()
     fps_tbn = get_origin_tbn_fps(input_path)
-    print(f"Encoding subpart info - fps_tbn={fps_tbn[0]} {fps_tbn[1]}")
+    # print(f"Encoding subpart info - fps_tbn={fps_tbn[0]} {fps_tbn[1]}")
     
     cmd = [
         FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
         FFMPEG_COMMANDS.SEEK, start_str,
         FFMPEG_COMMANDS.INPUT, input_path,
-        FFMPEG_COMMANDS.TO, f"{duration_sec:.6f}",
+        FFMPEG_COMMANDS.TT, f"{duration_sec:.6f}",
         FFMPEG_COMMANDS.MAP, "0:v:0",
         FFMPEG_COMMANDS.MAP, "0:a:0?",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["CPU_PRESET"],
         FFMPEG_COMMANDS.FRAME_RATE, fps_tbn[0],
         FFMPEG_COMMANDS.PIXEL_FORMAT, "yuv420p",
-        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, fps_tbn[1],
+        # FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, fps_tbn[1],
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_BITRATE, bitrate_str,
         FFMPEG_FLAGS.AVOID_NEGATIVE_TS, FFMPEG_FLAGS.MAKE_ZERO,
@@ -74,7 +74,7 @@ def encode_subpart(input_path: str, start_sec: float, duration_sec: float, outpu
         # FFMPEG_COMMANDS.HARDWARE_OUTPUT_ACCE, FFMPEG_CONFIGS["HWACCEL_CUDA"],
         FFMPEG_COMMANDS.SEEK, start_str,
         FFMPEG_COMMANDS.INPUT, input_path,
-        FFMPEG_COMMANDS.TO, f"{duration_sec:.6f}",
+        FFMPEG_COMMANDS.TT, f"{duration_sec:.6f}",
         FFMPEG_COMMANDS.MAP, "0:v:0",
         FFMPEG_COMMANDS.MAP, "0:a:0?",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.NVENC_H264,
@@ -83,7 +83,7 @@ def encode_subpart(input_path: str, start_sec: float, duration_sec: float, outpu
         FFMPEG_COMMANDS.PRESET, FFMPEG_CONFIGS["NVENC_PRESET"],
         FFMPEG_COMMANDS.FRAME_RATE, fps_tbn[0],
         FFMPEG_COMMANDS.PIXEL_FORMAT, "yuv420p",
-        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, fps_tbn[1],
+        # FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, fps_tbn[1],
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_BITRATE, bitrate_str,
         FFMPEG_FLAGS.AVOID_NEGATIVE_TS, FFMPEG_FLAGS.MAKE_ZERO,

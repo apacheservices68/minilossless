@@ -73,8 +73,8 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
 
     cmd = [FFMPEG_PATH, 
            FFMPEG_COMMANDS.OVERWRITE_OUTPUT, 
-           FFMPEG_COMMANDS.SEEK, start_time, 
            FFMPEG_COMMANDS.INPUT, input_path, 
+           FFMPEG_COMMANDS.SEEK, start_time,
            FFMPEG_COMMANDS.TO, end_time]
 
     if tracks:

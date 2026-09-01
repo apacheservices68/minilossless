@@ -91,6 +91,7 @@ def cut_video(input_path: str, output_path: str, start_time: str, end_time: str,
             progress_callback("cutting", 50)
 
         cmd = get_ffmpeg_cut_cmd(input_path, output_path, start_time, end_time, tracks, audio_codec)
+        # print(f"Running FFmpeg command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, text=True, check=True)
         
         if progress_callback:

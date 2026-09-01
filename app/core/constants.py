@@ -45,6 +45,7 @@ class FFMPEG_COMMANDS:
     OVERWRITE_OUTPUT = "-y"
     SEEK = "-ss"
     TO = "-to"
+    TT = "-t"
     VIDEO_FILTER = "-vf"
     AUDIO_FILTER = "-af"
     COPY_CODEC = "-c"
