@@ -133,6 +133,31 @@ def merge_videos(video_paths: list[str], output_path: str) -> bool:
         if temp_list and os.path.exists(temp_list):
             os.remove(temp_list)
 
+def merge_videos_v2(video_paths: list[str], output_path: str) -> bool:
+    """Merge multiple subparts safely with explicit audio/video stream mapping."""
+    if not video_paths:
+        raise ValueError("No video files provided for merging.")
+    
+    temp_list = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as f:
+            temp_list = f.name
+            for path in video_paths:
+                safe_path = path.replace("'", "'\\''")
+                f.write(f"file '{safe_path}'\n")
+        
+        # Gọi cmd v2 từ ffmpeg_config
+        from app.core.ffmpeg_config import get_ffmpeg_merge_cmd_v2
+        cmd = get_ffmpeg_merge_cmd_v2(temp_list, output_path)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error in merge_videos_v2: {e.stderr}")
+        raise Exception(e.stderr)
+    finally:
+        if temp_list and os.path.exists(temp_list):
+            os.remove(temp_list)
+
 def create_text_watermark_image(text: str, output_image_path: str) -> None:
     """Render text to a transparent PNG file using Pillow with white text and black outline."""
     font_names = ["DejaVuSans.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "FreeSans.ttf"]

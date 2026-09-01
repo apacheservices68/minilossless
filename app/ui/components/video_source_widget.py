@@ -36,7 +36,7 @@ class VideoSourceWidget(QWidget):
             self,
             "Select Video File",
             "",
-            "Video Files (*.mp4 *.mkv *.avi *.mov *.flv);;All Files (*)"
+            "Video Files (*.mp4 *.mkv *.avi *.mov *.flv *.MOV);;All Files (*)"
         )
         if file_path:
             self.file_selected.emit(file_path)

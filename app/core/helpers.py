@@ -92,6 +92,20 @@ def calculate_cropped_bitrate(orig_w: int, orig_h: int, crop_w: int, crop_h: int
 
     return f"{new_bitrate_kbps}k"
 
+def get_video_codec(input_path):
+    info = get_media_info(input_path)
+    if not info or "streams" not in info:
+        return "unknown"
+
+    # Lấy stream video đầu tiên
+    video_stream = next((s for s in info["streams"] if s.get("codec_type") == "video"), None)
+    if not video_stream:
+        return "unknown"
+
+    # Lấy tên codec (ví dụ: "h264", "hevc", "mpeg4")
+    return video_stream.get("codec_name", "unknown")
+
+
 def get_origin_bitrate(input_path):
     info = get_media_info(input_path)
     video_stream = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
@@ -102,6 +116,26 @@ def get_origin_bitrate(input_path):
         orig_bitrate = int(video_stream["bit_rate"])
 
     return f"{int(orig_bitrate / 1000)}k" if orig_bitrate is not None else None
+
+def get_origin_tbn_fps(input_path):
+    info = get_media_info(input_path)
+    if not info or "streams" not in info:
+        return ["60/1", "0"]
+
+    # Lấy video stream đầu tiên
+    video_stream = next((s for s in info["streams"] if s.get("codec_type") == "video"), None)
+    if not video_stream:
+        return ["60/1", "0"]
+
+    # 1. Giữ nguyên chuỗi phân số gốc của FPS (ví dụ: "60000/1001" hoặc "60/1")
+    # Ưu tiên avg_frame_rate để lấy đúng tốc độ khung hình trung bình thực tế
+    fps_str = video_stream.get("avg_frame_rate") or video_stream.get("r_frame_rate", "60/1")
+
+    # 2. Lấy TBN num (Tách mẫu số từ "1/60000" thành string "60000")
+    tbn_str = video_stream.get("time_base", "1/0")
+    tbn_num = tbn_str.split("/")[-1].replace("k", "000") if "/" in tbn_str else "0"
+
+    return [fps_str, tbn_num]
 
 def get_media_info(file_path):
     """Lấy thông tin video resolution dùng ffprobe trực tiếp"""

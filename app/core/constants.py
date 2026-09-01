@@ -81,6 +81,7 @@ class FFMPEG_COMMANDS:
     MAX_MUTE_QUEUE = "-max_muxing_queue_size"
     RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY,
     FILTER_COMPLEX = "-filter_complex_script"
+    VIDEO_TRACK_TIMESCALE = "-video_track_timescale"
 
 class FFMPEG_FLAGS:
     AVOID_NEGATIVE_TS = "-avoid_negative_ts"

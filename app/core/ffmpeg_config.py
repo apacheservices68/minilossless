@@ -1,9 +1,10 @@
-from app.core.ffmpeg_resolver import get_ffmpeg_path
+from app.core.ffmpeg_resolver import get_ffmpeg_path, get_ffprobe_path
 from app.core.constants import VIDEO_CODECS, HW_ACCELS, FFMPEG_COMMANDS, FFMPEG_FLAGS, PIXEL_FORMATS
 
 # FFmpeg Configuration and command builder helper functions
 
 FFMPEG_PATH = get_ffmpeg_path()
+FFPROBE_PATH = get_ffprobe_path()
 
 # Dictionary to store all configuration options
 FFMPEG_CONFIGS = {
@@ -38,6 +39,11 @@ FFMPEG_CONFIGS = {
     "AUDIO_CODEC_AAC": VIDEO_CODECS.AAC,
     "AUDIO_BITRATE_192K": "192k",
 
+    # Video
+    "VIDEO_BITRATE_DEFAULT": "4000k",
+    "VIDEO_BITRATE_HIGH": "10000k",
+    "VIDEO_BITRATE_LOW": "2500k",
+
     # CUDA Optional Parameters for bitrate, QP, and gop size 
     "BITRATE": None,
     "QP": "26",
@@ -54,7 +60,8 @@ FFMPEG_CONFIGS = {
     "MULTIPASS_VAL" : "qres",
     "CQ": "28",
     "MAXRATE_VAL" : "12M",
-    "BUFFSIZE_VAL" : "12M"
+    "BUFFSIZE_VAL" : "12M",
+    "DEFAULT_TIMESCALE" : "60000"
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -64,7 +71,11 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
     if not FFMPEG_PATH:
         raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
 
-    cmd = [FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT, FFMPEG_COMMANDS.SEEK, start_time, FFMPEG_COMMANDS.INPUT, input_path, FFMPEG_COMMANDS.TO, end_time]
+    cmd = [FFMPEG_PATH, 
+           FFMPEG_COMMANDS.OVERWRITE_OUTPUT, 
+           FFMPEG_COMMANDS.SEEK, start_time, 
+           FFMPEG_COMMANDS.INPUT, input_path, 
+           FFMPEG_COMMANDS.TO, end_time]
 
     if tracks:
         map_flags = []
@@ -90,6 +101,22 @@ def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_t
     cmd.extend([FFMPEG_FLAGS.AVOID_NEGATIVE_TS, FFMPEG_FLAGS.MAKE_ZERO, "-movflags", FFMPEG_FLAGS.FASTSTART])
     cmd.append(output_path)
     return cmd
+
+def get_ffmpeg_merge_cmd_v2(temp_list: str, output_path: str) -> list[str]:
+    """Build command list for merging videos from a text file."""
+    if not FFMPEG_PATH:
+        raise FileNotFoundError("FFmpeg executable not found. Please install it and add to your PATH.")
+    return [
+        FFMPEG_PATH,
+        "-f", FFMPEG_FLAGS.CONCAT,
+        FFMPEG_FLAGS.SAFE, "0",
+        FFMPEG_COMMANDS.INPUT, temp_list,
+        "-map", "0:v:0",
+        "-map", "0:a:0?",
+        FFMPEG_COMMANDS.COPY_CODEC, "copy",
+        FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
+        output_path
+    ]
 
 def get_ffmpeg_merge_cmd(temp_list: str, output_path: str) -> list[str]:
     """
@@ -267,6 +294,7 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
         FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
+        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, FFMPEG_CONFIGS["DEFAULT_TIMESCALE"],
         FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
         "{output_path}"
     ]
@@ -285,6 +313,7 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
         FFMPEG_COMMANDS.CQ_OPTION, FFMPEG_CONFIGS["CQ"],
         FFMPEG_COMMANDS.SPATIAL_AQ, FFMPEG_CONFIGS["SPATIAL_VAL"],
         FFMPEG_COMMANDS.TEMPORAL_AQ, FFMPEG_CONFIGS["TEMPORAL_VAL"],
+        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, FFMPEG_CONFIGS["DEFAULT_TIMESCALE"],
         FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
         "{output_path}"
     ]

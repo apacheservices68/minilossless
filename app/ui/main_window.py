@@ -14,6 +14,7 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget, QGraphicsVideoItem
 
 import app.services.ffmpeg_service as ffmpeg_service
+from app.services.smartcut_service_v2 import SmartCutWorkerV2
 import app.services.snapshot_service as snapshot_service
 # Added on 08132026: [VI] Import cac module cho tinh nang watermark hinh anh / [EN] Import modules for image watermark feature
 import app.services.img_watermark_service as img_watermark_service
@@ -365,13 +366,14 @@ class BasicCutTab(QWidget):
 
         if options.get("is_smart_cut", False):
             self.log("Initializing background Smartcut worker...")
-            self.smart_worker = SmartCutWorker(
+            self.smart_worker = SmartCutWorkerV2(
                 self.main_window.selected_video_path,
                 dest_dir,
                 self.segments,
                 options,
                 self
             )
+            
             self.smart_worker.log_signal.connect(self.log)
             # self.smart_worker.finished_signal.connect(lambda msg: QMessageBox.information(self, "Export Finished", msg))
             self.smart_worker.error_signal.connect(lambda err: QMessageBox.critical(self, "Export Error", err))
