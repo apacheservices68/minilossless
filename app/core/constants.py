@@ -32,6 +32,7 @@ class VIDEO_CODECS:
     AAC = "aac"
     PNG = "png"
     MJPEG = "mjpeg"
+    COPY = "copy"
 
 class IMAGE_FORMATS:
     IMAGE2 = "image2"
@@ -92,7 +93,29 @@ class FFMPEG_FLAGS:
     ASET_PTS_TO_START = "asetpts=PTS-STARTPTS"
     CONCAT = "concat"
     SAFE = "-safe"
+    HIDE_BANNER = "-hide_banner"
+    YES = "-y"
+    COPY = "copy"
+    FASTSTART = "+faststart"
+    INFER_NO_SUBS = "infer_no_subs"
+    
+    # Flags cho SmartCut đồng bộ Timestamp/Stream
+    START_TIME = "-ss"
+    DURATION = "-t"
+    VIDEO_TIMESCALE = "-video_track_timescale"
+    MAP = "-map"
+    MAP_METADATA = "-map_metadata"
+    MOVFLAGS = "-movflags"
+    DEFAULT_MODE = "-default_mode"
+    IGNORE_UNKNOWN = "-ignore_unknown"
 
 class PIXEL_FORMATS:
     YUV420P = "yuv420p"
     BGR24 = "bgr24"
+
+class FFPROBE_FLAGS:
+    HIDE_BANNER = "-hide_banner"
+    SELECT_STREAMS_VIDEO = "-select_streams"
+    SHOW_PACKETS = "-show_packets"
+    SHOW_ENTRIES = "-show_entries"
+    OF_JSON = "-of"
