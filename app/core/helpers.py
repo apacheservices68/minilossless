@@ -5,6 +5,8 @@ import cv2
 import math
 import subprocess
 
+from app.core.ffmpeg_resolver import get_ffmpeg_path, get_ffprobe_path
+
 def parse_ffmpeg_progress(line: str, duration_sec: float) -> int | None:
     """
     Parse log FFmpeg và trả về % tiến độ (0 - 100).
@@ -51,8 +53,9 @@ def check_cuda_support():
     try:
 
         # Kiểm tra xem ffmpeg có hỗ trợ h264_nvenc encoder không
+        ffmpeg_bin = get_ffmpeg_path()
         result = subprocess.run(
-            ["ffmpeg", "-encoders"],
+            [ffmpeg_bin, "-encoders"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -140,7 +143,7 @@ def get_origin_tbn_fps(input_path):
 def get_media_info(file_path):
     """Lấy thông tin video resolution dùng ffprobe trực tiếp"""
     cmd = [
-        "ffprobe",
+        get_ffprobe_path(),
         "-v", "quiet",
         "-print_format", "json",
         "-show_streams",
