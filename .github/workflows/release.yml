@@ -1,0 +1,85 @@
+name: Build and Release Cross-Platform
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc python3-dev
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt cython
+
+      - name: Download FFmpeg 6.0 GPL-Shared
+        run: |
+          mkdir -p assets/bin
+          cd assets/bin
+          curl -L -O https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
+          tar -xf ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
+          cp -r ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0/bin/* .
+          cp -r ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0/lib/* . 2>/dev/null || true
+          rm -rf ffmpeg-n6.0-12*
+          chmod +x ffmpeg ffprobe
+
+      - name: Download AI Models
+        run: |
+          mkdir -p assets/models
+          python -c "from app.core.asset_manager import ensure_assets_exist; ensure_assets_exist()"
+          cd assets/fonts
+          curl -L -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
+          curl -L -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf
+          curl -L -o arial.ttf https://github.com/matomo-org/travis-scripts/raw/master/fonts/Arial.ttf
+          curl -L -O https://github.com/liberationfonts/liberation-fonts/raw/main/ttf/LiberationSans-Regular.ttf
+          curl -L -o FreeSans.ttf https://raw.githubusercontent.com/gnu-freefont/freefont/master/subsets/FreeSans.ttf
+
+      - name: Protect Source Code with Cython
+        run: |
+          # 1. Biên dịch toàn bộ module trong app/ sang .so
+          python setup.py build_ext --inplace
+
+          # 2. Xóa các file .py và .c gốc trong app/ (chỉ chừa lại file __init__.py nếu có)
+          find app/ -type f -name "*.py" ! -name "__init__.py" -delete
+          find app/ -type f -name "*.c" -delete
+
+      - name: Build Executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onedir --windowed \
+            --exclude-module tkinter \
+            --exclude-module matplotlib \
+            --exclude-module sympy \
+            --exclude-module fontTools \
+            --exclude-module IPython \
+            --exclude-module PIL.ImageQt \
+            --add-data "assets:assets" \
+            --add-data "app:app" \
+            main.py
+
+      - name: Archive Release
+        run: |
+          cd dist
+          tar -cvzf minilossless-linux64.tar.gz main/ --options gzip:compression-level=9
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/minilossless-linux64.tar.gz
