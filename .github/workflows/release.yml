@@ -71,7 +71,7 @@ jobs:
             --exclude-module PIL.ImageQt \
             --add-data "assets:assets" \
             --add-data "app:app" \
-            main.py
+            main.py imports_collector.py 
 
       - name: Archive Release
         run: |
