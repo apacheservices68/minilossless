@@ -1,4 +1,7 @@
 import PIL
+import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
 import PyQt6.QtCore
 import PyQt6.QtGui
 import PyQt6.QtMultimedia
@@ -12,6 +15,7 @@ import math
 import mediapipe
 import mediapipe.tasks
 import mediapipe.tasks.python
+import mediapipe.tasks.python.vision
 import numpy
 import onnxruntime
 import os
@@ -19,6 +23,7 @@ import pathlib
 import platform
 import re
 import scipy.io
+import scipy.io.wavfile
 import shutil
 import soundfile
 import subprocess
