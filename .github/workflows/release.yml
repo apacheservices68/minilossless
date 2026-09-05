@@ -54,16 +54,15 @@ jobs:
 
       - name: Protect Source Code with Cython
         run: |
-          # 1. Biên dịch toàn bộ module trong app/ sang .so
           python setup.py build_ext --inplace
-
-          # 2. Xóa các file .py và .c gốc trong app/ (chỉ chừa lại file __init__.py nếu có)
           find app/ -type f -name "*.py" ! -name "__init__.py" -delete
           find app/ -type f -name "*.c" -delete
 
       - name: Build Executable with PyInstaller
         run: |
           pyinstaller --noconfirm --onedir --windowed \
+            --name "minilossless" \
+            --collect-all app \
             --exclude-module tkinter \
             --exclude-module matplotlib \
             --exclude-module sympy \
@@ -77,7 +76,8 @@ jobs:
       - name: Archive Release
         run: |
           cd dist
-          GZIP=-9 tar -czvf minilossless-linux64.tar.gz *
+          mv minilossless minilossless-linux64
+          GZIP=-9 tar -czvf minilossless-linux64.tar.gz minilossless-linux64
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
