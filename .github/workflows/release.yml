@@ -77,7 +77,7 @@ jobs:
       - name: Archive Release
         run: |
           cd dist
-          tar -cvzf minilossless-linux64.tar.gz main/ --options gzip:compression-level=9
+          GZIP=-9 tar -czvf minilossless-linux64.tar.gz *
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
