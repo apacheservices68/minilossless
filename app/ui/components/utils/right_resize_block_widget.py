@@ -44,8 +44,8 @@ class RightResizeBlockWidget(QGroupBox):
         """
         Connects widget signals to appropriate slots.
         """
-        self.width_spinbox.valueChanged.connect(lambda: self.on_width_changed())
-        self.height_spinbox.valueChanged.connect(lambda: self.on_height_changed())
+        self.width_spinbox.valueChanged.connect(self.on_width_changed)
+        self.height_spinbox.valueChanged.connect(self.on_height_changed)
 
     def set_original_dimensions(self, width, height):
         """

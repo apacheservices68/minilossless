@@ -55,7 +55,7 @@ class VideoPlayerWidget(QWidget):
         if file_path:
             self.player.setSource(QUrl.fromLocalFile(file_path))
             # Cập nhật khung scene theo kích thước video gốc (Add on 08282026)
-            self.video_item.nativeSizeChanged.connect(lambda: self._on_native_size_changed())
+            self.video_item.nativeSizeChanged.connect(self._on_native_size_changed)
             self.player.play()
             self.player.pause()
 

@@ -62,10 +62,10 @@ class TracksDialog(QDialog):
         main_layout.addWidget(self.button_box)
 
     def connect_signals(self):
-        self.tracks_table.itemSelectionChanged.connect(lambda: self.on_track_selection_changed())
-        self.btn_add_meta.clicked.connect(lambda: self.add_metadata_row())
-        self.button_box.accepted.connect(lambda: self.save_changes())
-        self.button_box.rejected.connect(lambda: self.reject())
+        self.tracks_table.itemSelectionChanged.connect(self.on_track_selection_changed)
+        self.btn_add_meta.clicked.connect(self.add_metadata_row)
+        self.button_box.accepted.connect(self.save_changes)
+        self.button_box.rejected.connect(self.reject)
 
     def populate_tracks_table(self):
         self.tracks_table.setRowCount(len(self.temp_tracks))

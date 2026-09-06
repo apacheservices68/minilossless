@@ -84,8 +84,8 @@ class CropVideoPlayerWidget(QWidget):
         self.setLayout(main_layout)
 
         # Connect signals
-        self.btn_mute.toggled.connect(lambda: self.on_mute_toggled())
-        self.slider_volume.valueChanged.connect(lambda: self.on_volume_changed())
+        self.btn_mute.toggled.connect(self.on_mute_toggled)
+        self.slider_volume.valueChanged.connect(self.on_volume_changed)
 
     # def fit_in_view(self):
     #     self.view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
@@ -115,7 +115,7 @@ class CropVideoPlayerWidget(QWidget):
         if video_path:
             self.player.setSource(QUrl.fromLocalFile(video_path))
             # The video item needs to be manually sized to the video's resolution
-            self.player.mediaStatusChanged.connect(lambda: self._on_media_status_changed())
+            self.player.mediaStatusChanged.connect(self._on_media_status_changed)
 
     def fit_in_view(self):
         if self.video_item and not self.video_item.boundingRect().isEmpty():

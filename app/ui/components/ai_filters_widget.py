@@ -30,7 +30,7 @@ class AIFiltersWidget(QWidget):
         self.cb_face_blur_type.addItem("Square (Hình vuông)", "Square")
         self.cb_face_blur_type.addItem("Circle/Ellipse (Hình elip)", "Ellipse")
         self.cb_face_blur_type.addItem("Replace with Image (Thay thế bằng ảnh)", "Image")
-        self.cb_face_blur_type.currentIndexChanged.connect(lambda: self.on_face_blur_type_changed())
+        self.cb_face_blur_type.currentIndexChanged.connect(self.on_face_blur_type_changed)
         
         self.cb_face_blur_style = QComboBox()
         self.cb_face_blur_style.addItem("Gaussian (Làm mờ mịn)", "Gaussian")
@@ -48,7 +48,7 @@ class AIFiltersWidget(QWidget):
         self.txt_face_image_path = QLineEdit()
         self.txt_face_image_path.setPlaceholderText("Select replacement image...")
         self.btn_face_image_browse = QPushButton("Browse...")
-        self.btn_face_image_browse.clicked.connect(lambda: self.browse_face_replacement_image())
+        self.btn_face_image_browse.clicked.connect(self.browse_face_replacement_image)
         face_img_layout.addWidget(self.txt_face_image_path, 1)
         face_img_layout.addWidget(self.btn_face_image_browse)
         self.widget_face_image.setVisible(False)

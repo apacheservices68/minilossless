@@ -40,8 +40,8 @@ class RightRotateBlockWidget(QGroupBox):
         """
         Connects widget signals to appropriate slots.
         """
-        self.preview_button.clicked.connect(lambda: self.on_preview())
-        self.apply_button.clicked.connect(lambda: self.on_apply())
+        self.preview_button.clicked.connect(self.on_preview)
+        self.apply_button.clicked.connect(self.on_apply)
 
     def on_preview(self):
         """

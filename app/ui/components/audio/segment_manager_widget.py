@@ -23,7 +23,7 @@ class SegmentManagerWidget(QWidget):
         self.table_segments.setHorizontalHeaderLabels(["Index", "Start", "End", "Duration"])
         self.table_segments.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table_segments.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table_segments.itemSelectionChanged.connect(lambda: self.on_segment_selected())
+        self.table_segments.itemSelectionChanged.connect(self.on_segment_selected)
         segments_layout.addWidget(self.table_segments)
 
         manual_layout = QHBoxLayout()
@@ -55,9 +55,9 @@ class SegmentManagerWidget(QWidget):
         self.setLayout(main_layout)
         
         # Connect signals
-        self.btn_add_seg.clicked.connect(lambda: self.add_segment())
-        self.btn_update_seg.clicked.connect(lambda: self.update_selected_segment())
-        self.btn_delete_seg.clicked.connect(lambda: self.delete_selected_segment())
+        self.btn_add_seg.clicked.connect(self.add_segment)
+        self.btn_update_seg.clicked.connect(self.update_selected_segment)
+        self.btn_delete_seg.clicked.connect(self.delete_selected_segment)
 
     def on_segment_selected(self):
         selected_items = self.table_segments.selectedItems()

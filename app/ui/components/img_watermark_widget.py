@@ -22,7 +22,7 @@ class ImgWatermarkWidget(QWidget):
         # Added on 08132026: [VI] Tao checkbox de bat/tat watermark hinh anh / [EN] Create checkbox to enable/disable image watermark
         self.chk_use_image = QCheckBox("Use Image Watermark")
         # Added on 08132026: [VI] Ket noi su kien toggled / [EN] Connect the toggled signal
-        self.chk_use_image.toggled.connect(lambda: self.on_toggle_image_watermark())
+        self.chk_use_image.toggled.connect(self.on_toggle_image_watermark)
         # Added on 08132026: [VI] Them vao layout / [EN] Add to layout
         layout.addWidget(self.chk_use_image)
 
@@ -43,7 +43,7 @@ class ImgWatermarkWidget(QWidget):
         # Added on 08132026: [VI] Tao nut "Browse..." / [EN] Create "Browse..." button
         btn_browse = QPushButton("Browse...")
         # Added on 08132026: [VI] Ket noi su kien click / [EN] Connect click signal
-        btn_browse.clicked.connect(lambda: self.browse_image())
+        btn_browse.clicked.connect(self.browse_image)
         # Added on 08132026: [VI] Them vao layout / [EN] Add to layout
         file_picker_layout.addWidget(btn_browse)
 

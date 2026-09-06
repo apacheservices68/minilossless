@@ -72,10 +72,10 @@ class MuteControlWidget(QWidget):
         layout.addWidget(self.export_button)
 
         # === Connections ===
-        self.mute_all_checkbox.toggled.connect(lambda: self._update_ui_states())
-        self.smart_mute_checkbox.toggled.connect(lambda: self._update_ui_states())
-        self.beep_checkbox.toggled.connect(lambda: self._update_ui_states())
-        self.browse_button.clicked.connect(lambda: self._browse_beep_file())
+        self.mute_all_checkbox.toggled.connect(self._update_ui_states)
+        self.smart_mute_checkbox.toggled.connect(self._update_ui_states)
+        self.beep_checkbox.toggled.connect(self._update_ui_states)
+        self.browse_button.clicked.connect(self._browse_beep_file)
 
         self.mute_all_checkbox.stateChanged.connect(self.state_changed.emit)
         self.smart_mute_checkbox.stateChanged.connect(self.state_changed.emit)
