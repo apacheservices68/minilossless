@@ -65,26 +65,26 @@ class AudioProcessingTab(QWidget):
 
     def connect_signals(self):
         video_player = self.left_widget.video_player
-        video_player.player.positionChanged.connect(self.on_player_position_changed)
-        video_player.player.durationChanged.connect(self.on_player_duration_changed)
-        video_player.player.playbackStateChanged.connect(self.on_playback_state_changed)
+        video_player.player.positionChanged.connect(lambda: self.on_player_position_changed())
+        video_player.player.durationChanged.connect(lambda: self.on_player_duration_changed())
+        video_player.player.playbackStateChanged.connect(lambda: self.on_playback_state_changed())
         
         video_player.slider_timeline.sliderPressed.connect(video_player.on_slider_pressed)
         video_player.slider_timeline.sliderReleased.connect(video_player.on_slider_released)
-        video_player.slider_timeline.sliderMoved.connect(self.on_slider_moved)
+        video_player.slider_timeline.sliderMoved.connect(lambda: self.on_slider_moved())
         
-        video_player.btn_play_pause.clicked.connect(self.toggle_play_pause)
-        self.mute_controls.export_button.clicked.connect(self.start_export)
+        video_player.btn_play_pause.clicked.connect(lambda: self.toggle_play_pause())
+        self.mute_controls.export_button.clicked.connect(lambda: self.start_export())
         
         # Connect segment controls
         video_player = self.left_widget.video_player
-        video_player.btn_set_start.clicked.connect(self.set_segment_start)
-        video_player.btn_set_end.clicked.connect(self.set_segment_end)
-        video_player.btn_prev_seg.clicked.connect(self.prev_segment)
-        video_player.btn_next_seg.clicked.connect(self.next_segment)
+        video_player.btn_set_start.clicked.connect(lambda: self.set_segment_start())
+        video_player.btn_set_end.clicked.connect(lambda: self.set_segment_end())
+        video_player.btn_prev_seg.clicked.connect(lambda: self.prev_segment())
+        video_player.btn_next_seg.clicked.connect(lambda: self.next_segment())
 
-        self.mute_controls.state_changed.connect(self.trigger_auto_save)
-        self.segment_manager.state_changed.connect(self.trigger_auto_save)
+        self.mute_controls.state_changed.connect(lambda: self.trigger_auto_save())
+        self.segment_manager.state_changed.connect(lambda: self.trigger_auto_save())
 
     def trigger_auto_save(self):
         self.auto_save_needed.emit()
@@ -131,9 +131,9 @@ class AudioProcessingTab(QWidget):
 
         self.audio_worker = AudioWorker(self.video_path, output_path, settings)
 
-        self.audio_worker.log.connect(self.log_message)
-        self.audio_worker.progress.connect(self.on_export_progress)
-        self.audio_worker.finished.connect(self.on_export_finished)
+        self.audio_worker.log.connect(lambda: self.log_message())
+        self.audio_worker.progress.connect(lambda: self.on_export_progress())
+        self.audio_worker.finished.connect(lambda: self.on_export_finished())
         self.audio_worker.start()
 
     def on_export_progress(self, percent):

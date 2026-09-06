@@ -95,7 +95,7 @@ class BasicCutTab(QWidget):
             # Added on 08132026: [VI] Them item vao combobox / [EN] Add item to combobox
             self.cb_position.addItem(value["label"], userData=name)
         btn_watermark = QPushButton("Watermark Video")
-        btn_watermark.clicked.connect(self.watermark_video_action)
+        btn_watermark.clicked.connect(lambda: self.watermark_video_action())
         watermark_sub_layout.addRow("Text:", self.txt_watermark)
         watermark_sub_layout.addRow("Pos:", self.cb_position)
 
@@ -111,7 +111,7 @@ class BasicCutTab(QWidget):
         merge_sub = QGroupBox("Merge (No Re-encode)")
         merge_sub_layout = QVBoxLayout()
         btn_merge = QPushButton("Merge Videos...")
-        btn_merge.clicked.connect(self.merge_videos_action)
+        btn_merge.clicked.connect(lambda: self.merge_videos_action())
         merge_sub_layout.addWidget(QLabel("Merge videos of same format."))
         merge_sub_layout.addWidget(btn_merge)
         merge_sub.setLayout(merge_sub_layout)
@@ -123,26 +123,26 @@ class BasicCutTab(QWidget):
         self.connect_signals()
 
     def connect_signals(self):
-        self.video_player_widget.player.positionChanged.connect(self.on_player_position_changed)
-        self.video_player_widget.player.durationChanged.connect(self.on_player_duration_changed)
+        self.video_player_widget.player.positionChanged.connect(lambda: self.on_player_position_changed())
+        self.video_player_widget.player.durationChanged.connect(lambda: self.on_player_duration_changed())
         self.video_player_widget.slider_timeline.sliderPressed.connect(self.video_player_widget.on_slider_pressed)
         self.video_player_widget.slider_timeline.sliderReleased.connect(self.video_player_widget.on_slider_released)
-        self.video_player_widget.slider_timeline.sliderMoved.connect(self.on_slider_moved)
-        self.video_player_widget.btn_play_pause.clicked.connect(self.toggle_play_pause)
-        self.video_player_widget.btn_set_start.clicked.connect(self.set_start_to_current)
-        self.video_player_widget.btn_set_end.clicked.connect(self.set_end_to_current)
-        self.video_player_widget.btn_prev_seg.clicked.connect(self.jump_to_prev_segment)
-        self.video_player_widget.btn_next_seg.clicked.connect(self.jump_to_next_segment)
+        self.video_player_widget.slider_timeline.sliderMoved.connect(lambda: self.on_slider_moved())
+        self.video_player_widget.btn_play_pause.clicked.connect(lambda: self.toggle_play_pause())
+        self.video_player_widget.btn_set_start.clicked.connect(lambda: self.set_start_to_current())
+        self.video_player_widget.btn_set_end.clicked.connect(lambda: self.set_end_to_current())
+        self.video_player_widget.btn_prev_seg.clicked.connect(lambda: self.jump_to_prev_segment())
+        self.video_player_widget.btn_next_seg.clicked.connect(lambda: self.jump_to_next_segment())
         self.video_player_widget.btn_help_close.clicked.connect(lambda: show_close_video_help(self))
         
-        self.track_control_widget.btn_tracks_status.clicked.connect(self.show_tracks_dialog)
-        self.track_control_widget.btn_toggle_audio.clicked.connect(self.toggle_discard_audio)
+        self.track_control_widget.btn_tracks_status.clicked.connect(lambda: self.show_tracks_dialog())
+        self.track_control_widget.btn_toggle_audio.clicked.connect(lambda: self.toggle_discard_audio())
         
-        self.snapshot_widget.btn_snapshot.clicked.connect(self.take_snapshot_action)
+        self.snapshot_widget.btn_snapshot.clicked.connect(lambda: self.take_snapshot_action())
         
-        self.segments_widget.table_segments.itemSelectionChanged.connect(self.on_segment_selection_changed)
-        self.segments_widget.btn_export.clicked.connect(self.export_segments_action)
-        self.segments_widget.cb_export_mode.currentIndexChanged.connect(self.on_export_mode_changed)
+        self.segments_widget.table_segments.itemSelectionChanged.connect(lambda: self.on_segment_selection_changed())
+        self.segments_widget.btn_export.clicked.connect(lambda: self.export_segments_action())
+        self.segments_widget.cb_export_mode.currentIndexChanged.connect(lambda: self.on_export_mode_changed())
         self.segments_widget.chk_cleanup.setEnabled(False) #initially disabled
 
     def log(self, message: str):
@@ -374,7 +374,7 @@ class BasicCutTab(QWidget):
                 self
             )
             
-            self.smart_worker.log_signal.connect(self.log)
+            self.smart_worker.log_signal.connect(lambda: self.log())
             # self.smart_worker.finished_signal.connect(lambda msg: QMessageBox.information(self, "Export Finished", msg))
             self.smart_worker.error_signal.connect(lambda err: QMessageBox.critical(self, "Export Error", err))
             self.smart_worker.start()
@@ -497,7 +497,7 @@ class BasicCutTab(QWidget):
         )
 
         # 3. Kết nối Signal
-        self.watermark_worker.log_signal.connect(self.log)
+        self.watermark_worker.log_signal.connect(lambda: self.log())
         """ self.watermark_worker.finished_signal.connect(
             lambda msg: QMessageBox.information(self, "Success", msg)
         ) """
@@ -572,7 +572,7 @@ class BasicCutTab(QWidget):
             QMessageBox.information(self, "Info", "No tracks loaded. Please open a video.")
             return
         dialog = TracksDialog(self.track_control_widget.tracks, self)
-        dialog.changes_applied.connect(self.update_tracks_button)
+        dialog.changes_applied.connect(lambda: self.update_tracks_button())
         dialog.exec()
     
     def toggle_discard_audio(self):
@@ -641,16 +641,16 @@ class MainWindow(QMainWindow):
         self.audio_tab = AudioProcessingTab(self)
         self.crop_tab = CropVideoTab(self)
         self.resize_tab = ResizeRotateTab(self)
-        self.advance_tab.log_message.connect(self.log)
-        self.audio_tab.log_message.connect(self.log)
-        self.crop_tab.log_message.connect(self.log)
-        self.resize_tab.log_message.connect(self.log)
+        self.advance_tab.log_message.connect(lambda: self.log())
+        self.audio_tab.log_message.connect(lambda: self.log())
+        self.crop_tab.log_message.connect(lambda: self.log())
+        self.resize_tab.log_message.connect(lambda: self.log())
 
         # Connect auto-save signals
         if hasattr(self.advance_tab, 'auto_save_needed'):
-            self.advance_tab.auto_save_needed.connect(self.save_project_state)
+            self.advance_tab.auto_save_needed.connect(lambda: self.save_project_state())
         if hasattr(self.audio_tab, 'auto_save_needed'):
-            self.audio_tab.auto_save_needed.connect(self.save_project_state)
+            self.audio_tab.auto_save_needed.connect(lambda: self.save_project_state())
 
         self.tabs.addTab(self.basic_tab, "Basic Cut / Main")
         self.tabs.addTab(self.advance_tab, "Advance Watermark & AI")

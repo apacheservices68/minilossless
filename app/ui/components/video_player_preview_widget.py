@@ -126,7 +126,7 @@ class VideoPlayerPreviewWidget(QWidget):
         self.scene.setSceneRect(0, 0, self.video_w, self.video_h)
         self.view = ResizableGraphicsView(self.scene, self)
         self.view.setMinimumHeight(400)
-        self.view.resized.connect(self.fit_video_in_view)
+        self.view.resized.connect(lambda: self.fit_video_in_view())
         
         self.video_item = QGraphicsVideoItem()
         self.scene.addItem(self.video_item)
@@ -141,15 +141,15 @@ class VideoPlayerPreviewWidget(QWidget):
         self.player.setAudioOutput(self.audio_output)
         self.player.setVideoOutput(self.video_item)
         
-        self.player.positionChanged.connect(self.on_player_position_changed)
-        self.player.durationChanged.connect(self.on_player_duration_changed)
+        self.player.positionChanged.connect(lambda: self.on_player_position_changed())
+        self.player.durationChanged.connect(lambda: self.on_player_duration_changed())
         
         timeline_layout = QHBoxLayout()
         self.slider_timeline = QSlider(Qt.Orientation.Horizontal)
         self.slider_timeline.setRange(0, 0)
-        self.slider_timeline.sliderPressed.connect(self.on_slider_pressed)
-        self.slider_timeline.sliderReleased.connect(self.on_slider_released)
-        self.slider_timeline.sliderMoved.connect(self.on_slider_moved)
+        self.slider_timeline.sliderPressed.connect(lambda: self.on_slider_pressed())
+        self.slider_timeline.sliderReleased.connect(lambda: self.on_slider_released())
+        self.slider_timeline.sliderMoved.connect(lambda: self.on_slider_moved())
         
         self.lbl_time = QLabel("00:00:00.000 / 00:00:00.000")
         timeline_layout.addWidget(self.slider_timeline, 1)
@@ -158,7 +158,7 @@ class VideoPlayerPreviewWidget(QWidget):
         
         media_controls = QHBoxLayout()
         self.btn_play_pause = QPushButton("Play")
-        self.btn_play_pause.clicked.connect(self.toggle_play_pause)
+        self.btn_play_pause.clicked.connect(lambda: self.toggle_play_pause())
         media_controls.addWidget(self.btn_play_pause)
         
         self.btn_help_close = QPushButton("?")

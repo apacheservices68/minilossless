@@ -23,7 +23,7 @@ class VideoSourceWidget(QWidget):
 
         self.btn_open = QPushButton("Open Video")
         self.btn_open.setObjectName("btn_open")
-        self.btn_open.clicked.connect(self.open_video_dialog)
+        self.btn_open.clicked.connect(lambda: self.open_video_dialog())
 
         file_layout.addWidget(self.lbl_video_path, 1)
         file_layout.addWidget(self.btn_open)

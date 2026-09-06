@@ -23,22 +23,22 @@ class TextOverlayEditorWidget(QWidget):
         
         edit_form = QFormLayout()
         self.txt_overlay_text = QLineEdit("My Watermark")
-        self.txt_overlay_text.textChanged.connect(self.on_properties_changed)
+        self.txt_overlay_text.textChanged.connect(lambda: self.on_properties_changed())
         
         self.spin_font_size = QSpinBox()
         self.spin_font_size.setRange(8, 200)
         self.spin_font_size.setValue(32)
-        self.spin_font_size.valueChanged.connect(self.on_properties_changed)
+        self.spin_font_size.valueChanged.connect(lambda: self.on_properties_changed())
         
         self.slider_rotation = QSlider(Qt.Orientation.Horizontal)
         self.slider_rotation.setRange(-360, 360)
         self.slider_rotation.setValue(0)
-        self.slider_rotation.valueChanged.connect(self.on_properties_changed)
+        self.slider_rotation.valueChanged.connect(lambda: self.on_properties_changed())
         
         self.slider_opacity = QSlider(Qt.Orientation.Horizontal)
         self.slider_opacity.setRange(0, 100)
         self.slider_opacity.setValue(100)
-        self.slider_opacity.valueChanged.connect(self.on_properties_changed)
+        self.slider_opacity.valueChanged.connect(lambda: self.on_properties_changed())
         
         edit_form.addRow("Text Content:", self.txt_overlay_text)
         edit_form.addRow("Font Size (px):", self.spin_font_size)

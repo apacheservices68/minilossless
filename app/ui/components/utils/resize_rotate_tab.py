@@ -34,7 +34,7 @@ class ResizeRotateTab(QWidget):
 
     def connect_signals(self):
         # Video loading
-        self.left_layout.video_source_widget.file_selected.connect(self.set_video_path)
+        self.left_layout.video_source_widget.file_selected.connect(lambda: self.set_video_path())
 
         # Player controls
         player = self.left_layout.video_player_widget.player
@@ -42,16 +42,16 @@ class ResizeRotateTab(QWidget):
         
         controls.btn_play_pause.clicked.connect(lambda: toggle_play_pause(player, controls.btn_play_pause))
         #Add on 08282026
-        player.positionChanged.connect(self.update_time_label)
-        player.durationChanged.connect(self.update_time_label)
+        player.positionChanged.connect(lambda: self.update_time_label())
+        player.durationChanged.connect(lambda: self.update_time_label())
         controls.slider_timeline.sliderMoved.connect(player.setPosition)
         controls.btn_mute.toggled.connect(player.audioOutput().setMuted)
         controls.slider_volume.valueChanged.connect(lambda vol: player.audioOutput().setVolume(vol / 100.0))
 
         # Resize/Rotate controls
-        self.right_layout.rotate_block.preview_rotate_requested.connect(self.on_preview_rotate)
-        self.right_layout.rotate_block.apply_rotate_requested.connect(self.on_apply_rotate) 
-        self.right_layout.resize_block.apply_button.clicked.connect(self.on_apply_resize)
+        self.right_layout.rotate_block.preview_rotate_requested.connect(lambda: self.on_preview_rotate())
+        self.right_layout.rotate_block.apply_rotate_requested.connect(lambda: self.on_apply_rotate()) 
+        self.right_layout.resize_block.apply_button.clicked.connect(lambda: self.on_apply_resize())
 
     def on_apply_rotate(self, rotate_option):
         """Kích hoạt worker với mode='rotate'"""
@@ -120,8 +120,8 @@ class ResizeRotateTab(QWidget):
     def _start_worker(self):
         """Hàm dùng chung để chạy worker thread và nối signal"""
         self.worker.log_signal.connect(self.log_message.emit)
-        self.worker.progress.connect(self.on_progress)  # Nối với progress bar nếu có
-        self.worker.finished_signal.connect(self.on_worker_finished)
+        self.worker.progress.connect(lambda: self.on_progress())  # Nối với progress bar nếu có
+        self.worker.finished_signal.connect(lambda: self.on_worker_finished())
         self.worker.start()
 
     def on_progress(self, percent):

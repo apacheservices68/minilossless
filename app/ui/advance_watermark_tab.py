@@ -70,14 +70,14 @@ class AdvanceWatermarkTab(QWidget):
         self.auto_save_needed.emit()
 
     def connect_signals(self):
-        self.video_player_widget.scene.selectionChanged.connect(self.on_scene_selection_changed)
-        self.text_editor_widget.add_text_overlay.connect(self.add_new_text_overlay)
-        self.text_editor_widget.delete_selected_text.connect(self.delete_selected_text)
-        self.text_editor_widget.selection_changed.connect(self.on_list_selection_changed)
-        self.text_editor_widget.properties_changed.connect(self.on_control_properties_changed)
-        self.ai_filters_widget.cuda_state_changed.connect(self.on_check_cuda_support)
-        self.ai_filters_widget.state_changed.connect(self.trigger_auto_save)
-        self.export_widget.start_export.connect(self.start_ai_processing)
+        self.video_player_widget.scene.selectionChanged.connect(lambda: self.on_scene_selection_changed())
+        self.text_editor_widget.add_text_overlay.connect(lambda: self.add_new_text_overlay())
+        self.text_editor_widget.delete_selected_text.connect(lambda: self.delete_selected_text())
+        self.text_editor_widget.selection_changed.connect(lambda: self.on_list_selection_changed())
+        self.text_editor_widget.properties_changed.connect(lambda: self.on_control_properties_changed())
+        self.ai_filters_widget.cuda_state_changed.connect(lambda: self.on_check_cuda_support())
+        self.ai_filters_widget.state_changed.connect(lambda: self.trigger_auto_save())
+        self.export_widget.start_export.connect(lambda: self.start_ai_processing())
 
     def on_check_cuda_support(self, is_checked):
         if is_checked and not check_cuda_support():
@@ -254,8 +254,8 @@ class AdvanceWatermarkTab(QWidget):
             bg_blur_strength=ai_state["bg_blur_strength"]
         )
         
-        self.worker.progress.connect(self.on_worker_progress)
-        self.worker.finished.connect(self.on_worker_finished)
+        self.worker.progress.connect(lambda: self.on_worker_progress())
+        self.worker.finished.connect(lambda: self.on_worker_finished())
         self.worker.start()
 
     def on_worker_progress(self, percent, text):

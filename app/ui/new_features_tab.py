@@ -30,7 +30,7 @@ class NewFeaturesTab(QWidget):
         snapshot_layout.addRow("Quality:", self.snapshot_quality_slider)
 
         btn_take_snapshot = QPushButton("Take Snapshot at Current Time")
-        btn_take_snapshot.clicked.connect(self.take_snapshot_action)
+        btn_take_snapshot.clicked.connect(lambda: self.take_snapshot_action())
         snapshot_layout.addRow(btn_take_snapshot)
 
         snapshot_group.setLayout(snapshot_layout)

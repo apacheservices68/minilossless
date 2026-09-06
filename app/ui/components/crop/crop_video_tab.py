@@ -86,25 +86,25 @@ class CropVideoTab(QWidget):
 
     def connect_signals(self):
         # Crop signals
-        self.overlay_widget.crop_rect_changed.connect(self.update_spinboxes_from_rect)
-        self.right_layout.pos_x_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.right_layout.pos_y_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.right_layout.width_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
-        self.right_layout.height_spinbox.valueChanged.connect(self.update_rect_from_spinboxes)
+        self.overlay_widget.crop_rect_changed.connect(lambda: self.update_spinboxes_from_rect())
+        self.right_layout.pos_x_spinbox.valueChanged.connect(lambda: self.update_rect_from_spinboxes())
+        self.right_layout.pos_y_spinbox.valueChanged.connect(lambda: self.update_rect_from_spinboxes())
+        self.right_layout.width_spinbox.valueChanged.connect(lambda: self.update_rect_from_spinboxes())
+        self.right_layout.height_spinbox.valueChanged.connect(lambda: self.update_rect_from_spinboxes())
 
         # Player signals
-        self.video_player_widget.player.positionChanged.connect(self.on_player_position_changed)
-        self.video_player_widget.player.durationChanged.connect(self.on_player_duration_changed)
-        self.video_player_widget.player.playbackStateChanged.connect(self.on_playback_state_changed)
+        self.video_player_widget.player.positionChanged.connect(lambda: self.on_player_position_changed())
+        self.video_player_widget.player.durationChanged.connect(lambda: self.on_player_duration_changed())
+        self.video_player_widget.player.playbackStateChanged.connect(lambda: self.on_playback_state_changed())
 
-        self.player_controls.slider_timeline.sliderMoved.connect(self.on_slider_moved)
-        self.player_controls.btn_play_pause.clicked.connect(self.toggle_play_pause)
-        self.player_controls.btn_mute.toggled.connect(self.on_mute_toggled)
-        self.player_controls.slider_volume.valueChanged.connect(self.on_volume_changed)
+        self.player_controls.slider_timeline.sliderMoved.connect(lambda: self.on_slider_moved())
+        self.player_controls.btn_play_pause.clicked.connect(lambda: self.toggle_play_pause())
+        self.player_controls.btn_mute.toggled.connect(lambda: self.on_mute_toggled())
+        self.player_controls.slider_volume.valueChanged.connect(lambda: self.on_volume_changed())
 
         # Connect event Reset button
-        self.right_layout.reset_button.clicked.connect(self.reset_crop_to_default)
-        self.right_layout.process_button.clicked.connect(self.start_crop_process)
+        self.right_layout.reset_button.clicked.connect(lambda: self.reset_crop_to_default())
+        self.right_layout.process_button.clicked.connect(lambda: self.start_crop_process())
 
     def start_crop_process(self):
         if not self.current_video_path or not os.path.exists(self.current_video_path):
@@ -143,8 +143,8 @@ class CropVideoTab(QWidget):
 
         # Nối các tín hiệu từ Worker
         self.crop_worker.log_signal.connect(self.log_message.emit)
-        self.crop_worker.progress.connect(self.on_crop_progress)
-        self.crop_worker.finished_signal.connect(self.on_crop_finished)
+        self.crop_worker.progress.connect(lambda: self.on_crop_progress())
+        self.crop_worker.finished_signal.connect(lambda: self.on_crop_finished())
 
         self.crop_worker.start()
 

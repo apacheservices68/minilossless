@@ -75,8 +75,8 @@ class VideoPlayerWidget(QWidget):
         self.setLayout(main_layout)
 
         # Connect signals
-        self.btn_mute.toggled.connect(self.on_mute_toggled)
-        self.slider_volume.valueChanged.connect(self.on_volume_changed)
+        self.btn_mute.toggled.connect(lambda: self.on_mute_toggled())
+        self.slider_volume.valueChanged.connect(lambda: self.on_volume_changed())
 
     def on_mute_toggled(self, is_muted):
         self.audio_output.setMuted(is_muted)
