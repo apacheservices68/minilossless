@@ -63,12 +63,13 @@ jobs:
           pyinstaller --noconfirm --onedir --windowed \
             --name "minilossless" \
             --collect-all app \
+            --collect-all PyQt6 \
+            --collect-all PIL \
+            --collect-all cv2 \
+            --collect-all mediapipe \
             --exclude-module tkinter \
-            --exclude-module matplotlib \
             --exclude-module sympy \
             --exclude-module fontTools \
-            --exclude-module IPython \
-            --exclude-module PIL.ImageQt \
             --add-data "assets:assets" \
             --add-data "app:app" \
             main.py imports_collector.py 
