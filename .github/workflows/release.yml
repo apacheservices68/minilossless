@@ -86,13 +86,7 @@ jobs:
       - name: Build Executable with PyInstaller
         shell: bash
         run: |
-          ARCH_FLAG=""
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            export MACOSX_DEPLOYMENT_TARGET=11.0
-            ARCH_FLAG="--target-architecture universal2"
-          fi
           pyinstaller --noconfirm --onedir --windowed \
-            $ARCH_FLAG \
             --name "minilossless" \
             --collect-all app \
             --collect-all PyQt6 \
