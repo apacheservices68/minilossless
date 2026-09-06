@@ -9,7 +9,24 @@ jobs:
   build:
     permissions:
       contents: write
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact_name: minilossless-linux64
+            asset_extension: .tar.gz
+            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
+          - os: windows-latest
+            artifact_name: minilossless-win64
+            asset_extension: .zip
+            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-win64-gpl-shared-6.0.zip
+          - os: macos-latest
+            artifact_name: minilossless-macos
+            asset_extension: .zip
+            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-macos64-gpl-shared-6.0.tar.xz
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout Code
@@ -25,20 +42,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt pyinstaller
 
-      - name: Download FFmpeg 6.0 GPL-Shared
+      - name: Download FFmpeg 6.0
+        shell: bash
         run: |
           mkdir -p assets/bin
           cd assets/bin
-          curl -L -O https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
-          tar -xf ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
-          cp -r ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0/bin/* .
-          cp -r ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0/lib/* . 2>/dev/null || true
-          rm -rf ffmpeg-n6.0-12*
-          chmod +x ffmpeg ffprobe
+          if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
+            curl -L -o ffmpeg.tar.xz "https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz"
+            tar -xf ffmpeg.tar.xz
+            cp -r ffmpeg-*/bin/* . 2>/dev/null || true
+            cp -r ffmpeg-*/lib/* . 2>/dev/null || true
+            rm -rf ffmpeg.tar.xz ffmpeg-*
+            chmod +x ffmpeg ffprobe 2>/dev/null || true
+            
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            curl -L -o ffmpeg.zip "https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-win64-gpl-shared-6.0.zip"
+            unzip -q ffmpeg.zip
+            cp ffmpeg-*/bin/* . 2>/dev/null || true
+            cp ffmpeg-*/lib/* . 2>/dev/null || true
+            rm -rf ffmpeg.zip ffmpeg-*
+            
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/ffmpeg-6.0.zip"
+            curl -L -o ffprobe.zip "https://evermeet.cx/ffmpeg/ffprobe-6.0.zip"
+            unzip -q ffmpeg.zip
+            unzip -q ffprobe.zip
+            rm -rf ffmpeg.zip ffprobe.zip
+            chmod +x ffmpeg ffprobe 2>/dev/null || true
+          fi
 
-      - name: Download AI Models
+      - name: Download AI Models & Fonts
+        shell: bash
         run: |
-          mkdir -p assets/models
+          mkdir -p assets/models assets/fonts
           python -c "from app.core.asset_manager import ensure_assets_exist; ensure_assets_exist()"
           cd assets/fonts
           curl -L -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
@@ -60,15 +96,24 @@ jobs:
             --exclude-module sympy \
             --exclude-module fontTools \
             --add-data "assets:assets" \
-            main.py 
+            main.py
 
-      - name: Archive Release
+      - name: Archive Release (Linux / macOS)
+        if: runner.os != 'Windows'
         run: |
           cd dist
-          mv minilossless minilossless-linux64
-          GZIP=-9 tar -czvf minilossless-linux64.tar.gz minilossless-linux64
+          mv minilossless ${{ matrix.artifact_name }}
+          tar -czvf ${{ matrix.artifact_name }}${{ matrix.asset_extension }} ${{ matrix.artifact_name }}
 
-      - name: Create GitHub Release
+      - name: Archive Release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd dist
+          Rename-Item -Path "minilossless" -NewName "${{ matrix.artifact_name }}"
+          Compress-Archive -Path "${{ matrix.artifact_name }}" -DestinationPath "${{ matrix.artifact_name }}${{ matrix.asset_extension }}"
+
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/minilossless-linux64.tar.gz
+          files: dist/${{ matrix.artifact_name }}${{ matrix.asset_extension }}
