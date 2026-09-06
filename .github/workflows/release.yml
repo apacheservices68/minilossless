@@ -19,7 +19,7 @@ jobs:
           - os: windows-latest
             artifact_name: minilossless-win64
             asset_extension: .zip
-          - os: macos-14
+          - os: macos-13
             artifact_name: minilossless-macos
             asset_extension: .zip
 
@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          architecture: 'x64'
 
       - name: Install Python Dependencies
         run: |
@@ -60,7 +59,7 @@ jobs:
             cp ffmpeg-*/lib/* . 2>/dev/null || true
             rm -rf ffmpeg.zip ffmpeg-*
             
-          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
+          elif [[ "${{ matrix.os }}" == "macos-13" ]]; then
             curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/ffmpeg-6.0.zip"
             curl -L -o ffprobe.zip "https://evermeet.cx/ffmpeg/ffprobe-6.0.zip"
             unzip -q ffmpeg.zip
