@@ -20,15 +20,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential gcc python3-dev
-
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt cython
+          pip install --no-cache-dir -r requirements.txt pyinstaller
 
       - name: Download FFmpeg 6.0 GPL-Shared
         run: |
@@ -52,12 +47,6 @@ jobs:
           curl -L -O https://github.com/liberationfonts/liberation-fonts/raw/main/ttf/LiberationSans-Regular.ttf
           curl -L -o FreeSans.ttf https://raw.githubusercontent.com/gnu-freefont/freefont/master/subsets/FreeSans.ttf
 
-      - name: Protect Source Code with Cython
-        run: |
-          python setup.py build_ext --inplace
-          find app/ -type f -name "*.py" ! -name "__init__.py" -delete
-          find app/ -type f -name "*.c" -delete
-
       - name: Build Executable with PyInstaller
         run: |
           pyinstaller --noconfirm --onedir --windowed \
@@ -71,8 +60,7 @@ jobs:
             --exclude-module sympy \
             --exclude-module fontTools \
             --add-data "assets:assets" \
-            --add-data "app:app" \
-            main.py imports_collector.py 
+            main.py 
 
       - name: Archive Release
         run: |
