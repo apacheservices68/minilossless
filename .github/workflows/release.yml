@@ -86,18 +86,35 @@ jobs:
       - name: Build Executable with PyInstaller
         shell: bash
         run: |
-          pyinstaller --noconfirm --onedir --windowed \
-            --name "minilossless" \
-            --collect-all app \
-            --collect-all PyQt6 \
-            --collect-all PIL \
-            --collect-all cv2 \
-            --collect-all mediapipe \
-            --exclude-module tkinter \
-            --exclude-module sympy \
-            --exclude-module fontTools \
-            --add-data "assets:assets" \
-            main.py
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            arch -x86_64 python -m pip install --upgrade pip
+            arch -x86_64 pip install --no-cache-dir -r requirements.txt pyinstaller
+            arch -x86_64 pyinstaller --noconfirm --onedir --windowed \
+              --name "minilossless" \
+              --collect-all app \
+              --collect-all PyQt6 \
+              --collect-all PIL \
+              --collect-all cv2 \
+              --collect-all mediapipe \
+              --exclude-module tkinter \
+              --exclude-module sympy \
+              --exclude-module fontTools \
+              main.py
+          else
+            pyinstaller --noconfirm --onedir --windowed \
+              --name "minilossless" \
+              --collect-all app \
+              --collect-all PyQt6 \
+              --collect-all PIL \
+              --collect-all cv2 \
+              --collect-all mediapipe \
+              --exclude-module tkinter \
+              --exclude-module sympy \
+              --exclude-module fontTools \
+              --add-data "assets:assets" \
+              main.py
+          fi
+          
 
       - name: Archive Release (Linux / macOS)
         if: runner.os != 'Windows'
