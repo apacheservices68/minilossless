@@ -21,7 +21,7 @@ jobs:
             artifact_name: minilossless-win64
             asset_extension: .zip
             ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-win64-gpl-shared-6.0.zip
-          - os: macos-13
+          - os: macos-14
             artifact_name: minilossless-macos
             asset_extension: .zip
             ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-macos64-gpl-shared-6.0.tar.xz
@@ -77,16 +77,22 @@ jobs:
           mkdir -p assets/models assets/fonts
           python -c "from app.core.asset_manager import ensure_assets_exist; ensure_assets_exist()"
           cd assets/fonts
-          curl -L -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
-          curl -L -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf
-          curl -L -o arial.ttf https://github.com/matomo-org/travis-scripts/raw/master/fonts/Arial.ttf
-          curl -L -O https://github.com/liberationfonts/liberation-fonts/raw/main/ttf/LiberationSans-Regular.ttf
-          curl -L -o FreeSans.ttf https://raw.githubusercontent.com/gnu-freefont/freefont/master/subsets/FreeSans.ttf
+          curl -L --retry 5 --retry-connrefused -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf
+          curl -L --retry 5 --retry-connrefused -O https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf
+          curl -L --retry 5 --retry-connrefused -o arial.ttf https://github.com/matomo-org/travis-scripts/raw/master/fonts/Arial.ttf
+          curl -L --retry 5 --retry-connrefused -O https://github.com/liberationfonts/liberation-fonts/raw/main/ttf/LiberationSans-Regular.ttf
+          curl -L --retry 5 --retry-connrefused -o FreeSans.ttf https://raw.githubusercontent.com/gnu-freefont/freefont/master/subsets/FreeSans.ttf
 
       - name: Build Executable with PyInstaller
         shell: bash
         run: |
+          ARCH_FLAG=""
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            export MACOSX_DEPLOYMENT_TARGET=11.0
+            ARCH_FLAG="--target-architecture universal2"
+          fi
           pyinstaller --noconfirm --onedir --windowed \
+            $ARCH_FLAG \
             --name "minilossless" \
             --collect-all app \
             --collect-all PyQt6 \
