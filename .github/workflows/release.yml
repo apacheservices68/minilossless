@@ -84,6 +84,7 @@ jobs:
           curl -L -o FreeSans.ttf https://raw.githubusercontent.com/gnu-freefont/freefont/master/subsets/FreeSans.ttf
 
       - name: Build Executable with PyInstaller
+        shell: bash
         run: |
           pyinstaller --noconfirm --onedir --windowed \
             --name "minilossless" \
