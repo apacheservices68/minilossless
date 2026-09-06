@@ -16,15 +16,12 @@ jobs:
           - os: ubuntu-22.04
             artifact_name: minilossless-linux64
             asset_extension: .tar.gz
-            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-linux64-gpl-shared-6.0.tar.xz
           - os: windows-latest
             artifact_name: minilossless-win64
             asset_extension: .zip
-            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-win64-gpl-shared-6.0.zip
           - os: macos-14
             artifact_name: minilossless-macos
             asset_extension: .zip
-            ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-macos64-gpl-shared-6.0.tar.xz
 
     runs-on: ${{ matrix.os }}
 
@@ -36,6 +33,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          architecture: 'x64'
 
       - name: Install Python Dependencies
         run: |
@@ -62,7 +60,7 @@ jobs:
             cp ffmpeg-*/lib/* . 2>/dev/null || true
             rm -rf ffmpeg.zip ffmpeg-*
             
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          elif [[ "${{ matrix.os }}" == "macos-14" ]]; then
             curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/ffmpeg-6.0.zip"
             curl -L -o ffprobe.zip "https://evermeet.cx/ffmpeg/ffprobe-6.0.zip"
             unzip -q ffmpeg.zip
@@ -86,35 +84,18 @@ jobs:
       - name: Build Executable with PyInstaller
         shell: bash
         run: |
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            arch -x86_64 python -m pip install --upgrade pip
-            arch -x86_64 pip install --no-cache-dir -r requirements.txt pyinstaller
-            arch -x86_64 pyinstaller --noconfirm --onedir --windowed \
-              --name "minilossless" \
-              --collect-all app \
-              --collect-all PyQt6 \
-              --collect-all PIL \
-              --collect-all cv2 \
-              --collect-all mediapipe \
-              --exclude-module tkinter \
-              --exclude-module sympy \
-              --exclude-module fontTools \
-              main.py
-          else
-            pyinstaller --noconfirm --onedir --windowed \
-              --name "minilossless" \
-              --collect-all app \
-              --collect-all PyQt6 \
-              --collect-all PIL \
-              --collect-all cv2 \
-              --collect-all mediapipe \
-              --exclude-module tkinter \
-              --exclude-module sympy \
-              --exclude-module fontTools \
-              --add-data "assets:assets" \
-              main.py
-          fi
-          
+          pyinstaller --noconfirm --onedir --windowed \
+            --name "minilossless" \
+            --collect-all app \
+            --collect-all PyQt6 \
+            --collect-all PIL \
+            --collect-all cv2 \
+            --collect-all mediapipe \
+            --exclude-module tkinter \
+            --exclude-module sympy \
+            --exclude-module fontTools \
+            --add-data "assets:assets" \
+            main.py
 
       - name: Archive Release (Linux / macOS)
         if: runner.os != 'Windows'
