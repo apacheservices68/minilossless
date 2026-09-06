@@ -21,7 +21,7 @@ jobs:
             artifact_name: minilossless-win64
             asset_extension: .zip
             ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-win64-gpl-shared-6.0.zip
-          - os: macos-latest
+          - os: macos-13
             artifact_name: minilossless-macos
             asset_extension: .zip
             ffmpeg_url: https://github.com/mifi/ffmpeg-builds/releases/download/6.0/ffmpeg-n6.0-12-ga6dc92968a-macos64-gpl-shared-6.0.tar.xz
