@@ -359,49 +359,35 @@ def process_video_ai(
             frame_idx += 1
             pct = int((frame_idx / total_frames) * 100)
             emit_progress(pct, f"Rendering CUDA Frame {frame_idx}/{total_frames} ({pct}%)")
+
+        if process and process.stdin:
+            process.stdin.close()
+        stdout_d, stderr_d = process.communicate() if process else (None, None)
+        if process and process.returncode != 0:
+            err_msg = stderr_d.decode('utf-8', errors='replace') if stderr_d else "Unknown FFmpeg Error"
+            if signals:
+                signals.finished.emit(False, f"FFmpeg Error (code {process.returncode}):\n{err_msg}")
+            return
+        emit_progress(100, "Done!")
+        if signals:
+            signals.finished.emit(True, "Processing completed successfully!")
                 
     except Exception as e:
         err_msg = str(e)
-        if "flush of closed file" not in err_msg and signals:
-            try:
-                signals.finished.emit(False, err_msg)
-            except Exception:
-                pass
-    finally:
-        cap.release()
-        
-        if process:
-            if process.stdin:
-                try:
-                    process.stdin.close()
-                except Exception:
-                    pass
-                process.stdin = None
-            
-            try:
-                stdout_d, stderr_d = process.communicate()
-            except Exception:
-                pass
-                
-        emit_progress(100, "Done!")
-
         if signals:
-            try:
-                signals.finished.emit(True, "Processing completed successfully!")
-            except Exception:
-                pass
-
-        if os.path.exists(temp_watermark_path):
-            try:
-                os.remove(temp_watermark_path)
-            except Exception:
-                pass
-
-        if detector is not None:
-            detector.close()
+            signals.finished.emit(False, err_msg)
             
-        if segmenter is not None:
-            segmenter.close()
+    cap.release()
+    if os.path.exists(temp_watermark_path):
+        try:
+            os.remove(temp_watermark_path)
+        except Exception:
+            pass
+
+    if detector is not None:
+        detector.close()
+    if segmenter is not None:
+        segmenter.close()
 
 def get_video_fps(input_path: str) -> float:
     """Get the FPS of a video file."""
