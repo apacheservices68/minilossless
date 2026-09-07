@@ -19,3 +19,6 @@ build/
 *.spec
 *.mp4
 !assets/bin/.gitkeep
+*.log
+*.jpg 
+*.png

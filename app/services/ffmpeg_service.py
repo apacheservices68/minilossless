@@ -280,7 +280,10 @@ def process_video_ai(
 
     cap = cv2.VideoCapture(input_video_path)
     if not cap.isOpened():
-        raise Exception(f"Cannot open input video: {input_video_path}")
+        err_msg = f"Cannot open input video: {input_video_path}"
+        if signals:
+            signals.finished.emit(False, err_msg)
+        return
         
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -296,16 +299,23 @@ def process_video_ai(
         total_frames = 1
         
     process = None
+    
+    # 1. Tạo file log tạm chuẩn Cross-Platform (Windows & Linux)
+    temp_log_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8", suffix=".log")
+    log_path = temp_log_file.name
+
+    is_cancelled = False
+    pipe_error_msg = None
+    
     try:
         if texts:
-            # Giữ inline import cho hàm này để tránh Circular Import với ai_processor.py
             from app.services.ai_processor import create_advanced_watermark_image
             create_advanced_watermark_image(
                 width, height, texts, temp_watermark_path, 
                 preview_width=preview_width, 
                 preview_height=preview_height
             )
-        # Add on 09292026 Bitrate checker
+
         bitrate_origin = get_origin_bitrate(input_video_path)
         
         ffmpeg_cmd = get_ffmpeg_pipe_cmd(
@@ -319,19 +329,23 @@ def process_video_ai(
             bitrate=bitrate_origin
         )
         
+        # 2. stdout=None để giữ luồng video nguyên bản, stderr ghi ra file tạm
         process = subprocess.Popen(
             ffmpeg_cmd,
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stdout=None,
+            stderr=temp_log_file
         )
 
         worker = kwargs.get("worker", None)
         frame_idx = 0
+
         while True:
-            if worker and getattr(worker, '_is_cancelled', False):  # <--- BỔ SUNG
+            if worker and getattr(worker, '_is_cancelled', False):
                 print("Processing cancelled by user.")
+                is_cancelled = True
                 break
+
             ret, frame = cap.read()
             if not ret:
                 break
@@ -353,41 +367,95 @@ def process_video_ai(
             
             try:
                 process.stdin.write(processed_frame.tobytes())
-            except Exception:
+            except Exception as pipe_err:
+                pipe_error_msg = f"Lỗi ghi Pipe sang FFmpeg: {str(pipe_err)}"
                 break
                 
             frame_idx += 1
             pct = int((frame_idx / total_frames) * 100)
             emit_progress(pct, f"Rendering CUDA Frame {frame_idx}/{total_frames} ({pct}%)")
 
+        # 3. Đóng stdin để FFmpeg bắt đầu kết thúc đóng gói file MP4
         if process and process.stdin:
-            process.stdin.close()
-        stdout_d, stderr_d = process.communicate() if process else (None, None)
-        if process and process.returncode != 0:
-            err_msg = stderr_d.decode('utf-8', errors='replace') if stderr_d else "Unknown FFmpeg Error"
-            if signals:
-                signals.finished.emit(False, f"FFmpeg Error (code {process.returncode}):\n{err_msg}")
-            return
-        emit_progress(100, "Done!")
-        if signals:
-            signals.finished.emit(True, "Processing completed successfully!")
-                
-    except Exception as e:
-        err_msg = str(e)
-        if signals:
-            signals.finished.emit(False, err_msg)
-            
-    cap.release()
-    if os.path.exists(temp_watermark_path):
-        try:
-            os.remove(temp_watermark_path)
-        except Exception:
-            pass
+            try:
+                process.stdin.close()
+            except Exception:
+                pass
+            process.stdin = None
 
-    if detector is not None:
-        detector.close()
-    if segmenter is not None:
-        segmenter.close()
+        # 4. Đóng file log tạm để xả toàn bộ dữ liệu log xuống đĩa
+        if temp_log_file and not temp_log_file.closed:
+            temp_log_file.close()
+
+        # 5. Kiểm tra trạng thái thoát của FFmpeg
+        return_code = process.wait() if process else 0
+
+        # PHÂN LUỒNG PHÁT TÍN HIỆU FINISHED (Không Raise Exception)
+        if is_cancelled:
+            if signals:
+                signals.finished.emit(False, "Process was cancelled by user.")
+        elif pipe_error_msg:
+            if signals:
+                signals.finished.emit(False, pipe_error_msg)
+        elif return_code != 0:
+            # Đọc vài dòng log cuối cùng từ file tạm để tìm nguyên nhân chính xác
+            err_details = ""
+            if os.path.exists(log_path):
+                with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                    err_details = f.read()
+
+            log_lines = [line.strip() for line in err_details.splitlines() if line.strip()]
+            short_err = "\n".join(log_lines[-6:]) if log_lines else f"FFmpeg exited with code {return_code}"
+            
+            if signals:
+                signals.finished.emit(False, f"FFmpeg Render Error (Exit Code {return_code}):\n{short_err}")
+        else:
+            # THÀNH CÔNG RỰC RỠ: Phát tín hiệu True duy nhất ở đây!
+            emit_progress(100, "Done!")
+            if signals:
+                signals.finished.emit(True, "Processing completed successfully!")
+
+    except Exception as e:
+        # Bắt các lỗi Python ngoại lệ khác (nếu có) và đẩy trực tiếp qua signals
+        err_msg = str(e)
+        print(f"[AI Process Exception]: {err_msg}")
+        if signals:
+            signals.finished.emit(False, f"Processing Failed:\n{err_msg}")
+
+    finally:
+        # 6. KHỐI DỌN DẸP TÀI NGUYÊN THẦN THÁNH (Sạch sẽ, không `pass` vô tội vạ)
+        if cap and cap.isOpened():
+            cap.release()
+
+        if process and process.poll() is None:
+            try:
+                process.kill()
+            except Exception:
+                pass
+
+        if temp_log_file and not temp_log_file.closed:
+            try:
+                temp_log_file.close()
+            except Exception:
+                pass
+
+        if os.path.exists(log_path):
+            try:
+                os.remove(log_path)
+            except Exception:
+                pass
+
+        if os.path.exists(temp_watermark_path):
+            try:
+                os.remove(temp_watermark_path)
+            except Exception:
+                pass
+
+        if detector is not None:
+            detector.close()
+            
+        if segmenter is not None:
+            segmenter.close()
 
 def get_video_fps(input_path: str) -> float:
     """Get the FPS of a video file."""
