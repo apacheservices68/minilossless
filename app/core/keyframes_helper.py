@@ -150,9 +150,10 @@ def encode_subpart(input_path: str, start_sec: float, duration_sec: float, outpu
         FFMPEG_FLAGS.DURATION, f"{duration_sec:.5f}",
         FFMPEG_FLAGS.MAP, "0:v:0",
         FFMPEG_FLAGS.MAP, "0:a:0?",
-        "-c:v", VIDEO_CODECS.CPU_H264,
-        "-b:v", bitrate_str,
-        "-c:a", VIDEO_CODECS.COPY,
+        FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
+        FFMPEG_COMMANDS.VIDEO_BITRATE, bitrate_str,
+        FFMPEG_COMMANDS.AUDIO_CODEC, VIDEO_CODECS.COPY,
+        FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
         FFMPEG_FLAGS.IGNORE_UNKNOWN
     ]
 

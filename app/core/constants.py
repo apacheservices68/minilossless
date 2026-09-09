@@ -84,6 +84,8 @@ class FFMPEG_COMMANDS:
     RC_LOOKAHEAD = "-rc-lookahead" # CPU ONLY,
     FILTER_COMPLEX = "-filter_complex_script"
     VIDEO_TRACK_TIMESCALE = "-video_track_timescale"
+    PROFILE = "-profile:v"
+    ENC_TIMEBASE = "-enc_time_base"
 
 class FFMPEG_FLAGS:
     AVOID_NEGATIVE_TS = "-avoid_negative_ts"

@@ -1,5 +1,5 @@
 from app.core.ffmpeg_config import get_ffmpeg_crop_cmd
-from app.core.helpers import calculate_cropped_bitrate, check_cuda_support, get_media_info
+from app.core.helpers import calculate_cropped_bitrate, check_cuda_support, get_media_info, get_origin_tbn_fps
 
 
 class CropService:
@@ -26,9 +26,18 @@ class CropService:
                     orig_bitrate = int(raw_bitrate)
                     # Tính toán bitrate mới
                     target_bitrate = calculate_cropped_bitrate(orig_w, orig_h, w, h, orig_bitrate)
+
+                fps_tbn = get_origin_tbn_fps(input_path)
+                timescale = fps_tbn[1] if len(fps_tbn) > 1 else None
+                fps = fps_tbn[0] if len(fps_tbn) > 1 else None
         except Exception as e:
             print(f"[CẢNH BÁO] Không lấy được bitrate gốc: {e}")
-        template = get_ffmpeg_crop_cmd(is_gpu=self.use_gpu, bitrate=target_bitrate)
+        template = get_ffmpeg_crop_cmd(
+            is_gpu=self.use_gpu, 
+            bitrate=target_bitrate,
+            filter_str=None,
+            timescale=timescale,
+            fps=fps)
         
         cmd = []
         for arg in template:

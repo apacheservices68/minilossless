@@ -1,3 +1,4 @@
+import math
 import os
 import json
 import tempfile
@@ -297,9 +298,9 @@ def process_video_ai(
         fps = 30.0
     if total_frames <= 0:
         total_frames = 1
+    fps_rounded = math.ceil(fps)
         
     process = None
-    
     # 1. Tạo file log tạm chuẩn Cross-Platform (Windows & Linux)
     temp_log_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8", suffix=".log")
     log_path = temp_log_file.name
@@ -321,7 +322,7 @@ def process_video_ai(
         ffmpeg_cmd = get_ffmpeg_pipe_cmd(
             width=width,
             height=height,
-            fps=fps,
+            fps=fps_rounded,
             temp_watermark_path=temp_watermark_path,
             input_video_path=input_video_path,
             use_cuda=use_cuda,

@@ -1,3 +1,6 @@
+from fractions import Fraction
+import math
+
 from app.core.ffmpeg_resolver import get_ffmpeg_path, get_ffprobe_path
 from app.core.constants import VIDEO_CODECS, HW_ACCELS, FFMPEG_COMMANDS, FFMPEG_FLAGS, PIXEL_FORMATS
 
@@ -61,7 +64,8 @@ FFMPEG_CONFIGS = {
     "CQ": "28",
     "MAXRATE_VAL" : "12M",
     "BUFFSIZE_VAL" : "12M",
-    "DEFAULT_TIMESCALE" : "60000"
+    "DEFAULT_TIMESCALE" : "60000",
+    "PROFILE_VAL" : "high",
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -192,6 +196,7 @@ def get_ffmpeg_pipe_cmd(
         "-filter_complex", "[0:v][1:v]overlay=0:0[outv]",
         FFMPEG_COMMANDS.MAP, "[outv]",
         FFMPEG_COMMANDS.MAP, "2:a?",
+        FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
     ]
     
     # Optional parameters can be added to the dictionary to support bitrate, QP, gop size
@@ -272,7 +277,7 @@ def get_ffmpeg_snapshot_cmd(input_path: str, output_path: str, time: str, qualit
     cmd.append(output_path)
     return cmd
 
-def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = None) -> list[str]:
+def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = None, timescale: str = None, fps: str = None) -> list[str]:
     # 1. Khai báo danh sách các cờ CQ/CRF cần loại bỏ nếu có bitrate
     remove_flags = set()
     if bitrate:
@@ -283,8 +288,17 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
             FFMPEG_CONFIGS.get("CPU_CRF")
         } - {None}
 
+    # timescale
+    my_timescale = timescale if timescale is not None else FFMPEG_CONFIGS["DEFAULT_TIMESCALE"]
+    
+    fps_rounded = math.ceil(float(Fraction(fps)))
+
     # Sửa lại thành:
     filter = filter_str if filter_str is not None else "crop={w}:{h}:{x}:{y}"
+    if fps != None:
+        filter += f",fps={fps_rounded}"
+    print(f"Using filter: {filter}")
+    
     # 2. Template CPU
     FFMPEG_CROP_CPU_CMD = [
         FFMPEG_PATH, FFMPEG_COMMANDS.OVERWRITE_OUTPUT,
@@ -294,8 +308,9 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
         FFMPEG_COMMANDS.AUDIO_CODEC, "copy",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
         FFMPEG_COMMANDS.CONSTANT_RATE_FACTOR, FFMPEG_CONFIGS["CPU_CRF"],
-        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, FFMPEG_CONFIGS["DEFAULT_TIMESCALE"],
+        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, my_timescale,
         FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
+        FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
         "{output_path}"
     ]
 
@@ -313,8 +328,8 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
         FFMPEG_COMMANDS.CQ_OPTION, FFMPEG_CONFIGS["CQ"],
         FFMPEG_COMMANDS.SPATIAL_AQ, FFMPEG_CONFIGS["SPATIAL_VAL"],
         FFMPEG_COMMANDS.TEMPORAL_AQ, FFMPEG_CONFIGS["TEMPORAL_VAL"],
-        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, FFMPEG_CONFIGS["DEFAULT_TIMESCALE"],
-        FFMPEG_COMMANDS.MAX_MUTE_QUEUE, FFMPEG_CONFIGS["MAX_MUTE_QUEUE_VAL"],
+        FFMPEG_COMMANDS.VIDEO_TRACK_TIMESCALE, my_timescale,
+        FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
         "{output_path}"
     ]
 

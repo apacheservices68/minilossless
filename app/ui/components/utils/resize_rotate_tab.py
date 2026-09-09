@@ -96,7 +96,7 @@ class ResizeRotateTab(QWidget):
         width, height = self.right_layout.resize_block.get_values()
         folder, filename = os.path.split(self.current_video_path)
         name, ext = os.path.splitext(filename)
-        output_path = os.path.join(folder, f"{name}_resized{ext}")
+        output_path = os.path.join(folder, f"{name}_resized.mp4")  # Always output as .mp4 for resized videos
         player = self.left_layout.video_player_widget.player
         duration_sec = player.duration() / 1000.0
 
