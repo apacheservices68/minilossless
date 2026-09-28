@@ -72,9 +72,10 @@ class MuteControlWidget(QWidget):
         layout.addWidget(self.export_button)
 
         # === Connections ===
-        self.mute_all_checkbox.toggled.connect(self._update_ui_states)
-        self.smart_mute_checkbox.toggled.connect(self._update_ui_states)
+        self.mute_all_checkbox.toggled.connect(self._on_mute_all_toggled)
+        self.smart_mute_checkbox.toggled.connect(self._on_smart_mute_toggled)
         self.beep_checkbox.toggled.connect(self._update_ui_states)
+
         self.browse_button.clicked.connect(self._browse_beep_file)
 
         self.mute_all_checkbox.stateChanged.connect(self.state_changed.emit)
@@ -114,23 +115,27 @@ class MuteControlWidget(QWidget):
         layout.addWidget(spinbox)
         return layout
 
-    def _update_ui_states(self):
-        sender = self.sender()
+    def _on_mute_all_toggled(self, checked):
+        if checked:
+            # Tắt tạm signal của smart_mute để không gây lặp/crash
+            self.smart_mute_checkbox.blockSignals(True)
+            self.smart_mute_checkbox.setChecked(False)
+            self.smart_mute_checkbox.blockSignals(False)
+        self._update_ui_states()
 
+    def _on_smart_mute_toggled(self, checked):
+        if checked:
+            # Tắt tạm signal của mute_all để không gây lặp/crash
+            self.mute_all_checkbox.blockSignals(True)
+            self.mute_all_checkbox.setChecked(False)
+            self.mute_all_checkbox.blockSignals(False)
+        self._update_ui_states()
+
+    def _update_ui_states(self):
+        # KHÔNG DÙNG self.sender() Ở ĐÂY NỮA
         is_mute_all = self.mute_all_checkbox.isChecked()
         is_smart_mute = self.smart_mute_checkbox.isChecked()
         is_beep_replace = self.beep_checkbox.isChecked()
-
-        # Mutual exclusion logic
-        if sender == self.mute_all_checkbox and is_mute_all:
-            self.smart_mute_checkbox.setChecked(False)
-
-        if sender == self.smart_mute_checkbox and is_smart_mute:
-            self.mute_all_checkbox.setChecked(False)
-
-        # Update visibility based on new state
-        is_mute_all = self.mute_all_checkbox.isChecked()
-        is_smart_mute = self.smart_mute_checkbox.isChecked()
 
         self.smart_mute_checkbox.setVisible(not is_mute_all)
         self.mute_all_checkbox.setVisible(not is_smart_mute)
@@ -175,6 +180,11 @@ class MuteControlWidget(QWidget):
         }
     
     def reset_ui(self):
+        # 092826 Chặn phát tín hiệu trong lúc reset để tránh crash PyQt event loop
+        self.mute_all_checkbox.blockSignals(True)
+        self.smart_mute_checkbox.blockSignals(True)
+        self.beep_checkbox.blockSignals(True)
+
         self.mute_all_checkbox.setChecked(False)
         self.smart_mute_checkbox.setChecked(False)
         self.beep_checkbox.setChecked(False)
@@ -186,6 +196,11 @@ class MuteControlWidget(QWidget):
         self.beep_file_path = None
         self.beep_file_label.setText("No file selected.")
         self.beep_file_label.setToolTip("")
+
+        # 092826 Bật lại tín hiệu
+        self.mute_all_checkbox.blockSignals(False)
+        self.smart_mute_checkbox.blockSignals(False)
+        self.beep_checkbox.blockSignals(False)
 
         self._update_ui_states()
 

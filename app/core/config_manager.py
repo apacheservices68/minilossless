@@ -3,7 +3,7 @@ import json
 from PyQt6.QtCore import QUrl, QSizeF, Qt
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
-from PyQt6.QtWidgets import QLineEdit
+from PyQt6.QtWidgets import QLineEdit,QApplication
 from app.services.ffmpeg_service import format_seconds_to_time, parse_time_to_seconds
 
 def reset_workspace(main_window):
@@ -37,6 +37,8 @@ def reset_workspace(main_window):
     # 4. Reset MetadataTab
     if hasattr(main_window, 'metadata_tab'):
         main_window.metadata_tab.reset_tab()
+    
+    QApplication.processEvents()
 
     # 5. Reset AudioProcessingTab
     if hasattr(main_window, 'audio_tab'):
@@ -49,6 +51,8 @@ def reset_workspace(main_window):
     # 7. Reset ResizeRotateTab 
     if hasattr(main_window, 'resize_tab'):
         main_window.resize_tab.reset_ui()
+
+    QApplication.processEvents()
 
 
 def save_project_state(main_window):

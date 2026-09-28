@@ -345,11 +345,27 @@ class AdvanceWatermarkTab(QWidget):
 
     # Add on 08172026 @apacheservice68 | editor encapsulating all reset actions
     def reset_tab(self):
-        # 1. Hủy worker nếu AI đang chạy ngầm
-        if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
-            self.worker.cancel()  # <--- Đổi terminate() thành cancel()
-            self.worker.quit()
-            self.worker.wait(2000) 
+        # # 1. Hủy worker nếu AI đang chạy ngầm
+        # if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+        #     self.worker.cancel()  # <--- Đổi terminate() thành cancel()
+        #     self.worker.quit()
+        #     self.worker.wait(2000) 
+        #     self.worker = None
+        # 1. Hủy worker an toàn nếu AI đang chạy ngầm
+        if hasattr(self, 'worker') and self.worker is not None:
+            if self.worker.isRunning():
+                self.worker.cancel()
+                self.worker.quit()
+                # Chờ tối đa 3 giây cho thread C++ kết thúc hẳn
+                if not self.worker.wait(3000): 
+                    self.worker.terminate()
+                    self.worker.wait()
+            # Đảm bảo disconnect signals để tránh gọi callback trên object đã bị huỷ
+            try:
+                self.worker.progress.disconnect()
+                self.worker.finished.disconnect()
+            except Exception:
+                pass
             self.worker = None
 
         # 2. Reset các biến dữ liệu

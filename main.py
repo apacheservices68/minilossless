@@ -1,7 +1,10 @@
 import sys
+import faulthandler
 from PyQt6.QtWidgets import QApplication
 from app.ui.main_window import MainWindow
 from app.core.asset_manager import ensure_assets_exist
+
+faulthandler.enable()
 
 def main():
     # Ensure assets exist before starting QApplication

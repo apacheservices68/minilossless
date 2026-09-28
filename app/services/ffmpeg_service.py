@@ -424,39 +424,73 @@ def process_video_ai(
             signals.finished.emit(False, f"Processing Failed:\n{err_msg}")
 
     finally:
-        # 6. KHỐI DỌN DẸP TÀI NGUYÊN THẦN THÁNH (Sạch sẽ, không `pass` vô tội vạ)
-        if cap and cap.isOpened():
+        if cap is not None and cap.isOpened():
             cap.release()
 
-        if process and process.poll() is None:
-            try:
-                process.kill()
-            except Exception:
-                pass
+        if process is not None:
+            if process.stdin and not process.stdin.closed:
+                try:
+                    process.stdin.close()
+                except Exception:
+                    pass
+            if process.poll() is None:
+                try:
+                    process.kill()
+                    process.wait()
+                except Exception:
+                    pass
 
-        if temp_log_file and not temp_log_file.closed:
-            try:
-                temp_log_file.close()
-            except Exception:
-                pass
-
-        if os.path.exists(log_path):
-            try:
-                os.remove(log_path)
-            except Exception:
-                pass
-
-        if os.path.exists(temp_watermark_path):
-            try:
-                os.remove(temp_watermark_path)
-            except Exception:
-                pass
-
+        # Giải phóng bộ nhớ C++ của MediaPipe bắt buộc
         if detector is not None:
-            detector.close()
+            try:
+                detector.close()
+            except Exception as e:
+                print(f"Error closing detector: {e}")
+            detector = None
             
         if segmenter is not None:
-            segmenter.close()
+            try:
+                segmenter.close()
+            except Exception as e:
+                print(f"Error closing segmenter: {e}")
+            segmenter = None
+
+        # Thu gom rác Python ngay lập tức
+        import gc
+        gc.collect()
+        # 6. KHỐI DỌN DẸP TÀI NGUYÊN THẦN THÁNH (Sạch sẽ, không `pass` vô tội vạ)
+        # if cap and cap.isOpened():
+        #     cap.release()
+
+        # if process and process.poll() is None:
+        #     try:
+        #         process.kill()
+        #     except Exception:
+        #         pass
+
+        # if temp_log_file and not temp_log_file.closed:
+        #     try:
+        #         temp_log_file.close()
+        #     except Exception:
+        #         pass
+
+        # if os.path.exists(log_path):
+        #     try:
+        #         os.remove(log_path)
+        #     except Exception:
+        #         pass
+
+        # if os.path.exists(temp_watermark_path):
+        #     try:
+        #         os.remove(temp_watermark_path)
+        #     except Exception:
+        #         pass
+
+        # if detector is not None:
+        #     detector.close()
+            
+        # if segmenter is not None:
+        #     segmenter.close()
 
 def get_video_fps(input_path: str) -> float:
     """Get the FPS of a video file."""

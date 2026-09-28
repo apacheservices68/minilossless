@@ -112,5 +112,6 @@ class AIPipeline:
                         else:
                             # Square blur (Default)
                             processed_frame[ymin:ymin + blur_h, xmin:xmin + w] = blurred_roi
-
+        if 'mp_image' in locals():
+            del mp_image
         return processed_frame
