@@ -1,3 +1,4 @@
+from decimal import ROUND_HALF_UP, Decimal
 import json
 import os
 import re
@@ -6,6 +7,16 @@ import math
 import subprocess
 
 from app.core.ffmpeg_resolver import get_ffmpeg_path, get_ffprobe_path
+
+def my_round(val: float) -> int:
+    """Làm tròn (Half Up):
+
+    - < 0.5  -> làm tròn XUỐNG (VD: 31.001 -> 31, 30.2 -> 30)
+    - >= 0.5 -> làm tròn LÊN (VD: 31.501 -> 32, 30.51 -> 31)
+    """
+    return int(
+        Decimal(str(val)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
 
 def parse_ffmpeg_progress(line: str, duration_sec: float) -> int | None:
     """

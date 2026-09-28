@@ -10,6 +10,7 @@ from app.ai.processors import (
     apply_replace_image,
     blur_background
 )
+from app.core.constants import AI_FACE_FLAGS
 
 class AIPipeline:
     """
@@ -57,11 +58,11 @@ class AIPipeline:
                 oh = int(bbox.height * sy)
                 
                 # Alignment and scaling shift adjustments (verbatim from the legacy codebase)
-                shift_up = int(oh * 0.20)
-                shift_left = int(ow * 0.05)
+                shift_up = int(oh * AI_FACE_FLAGS.FACE_SHIFT_UP)
+                shift_left = int(ow * AI_FACE_FLAGS.FACE_SHIFT_LEFT)
                 
-                h_adjusted = int(oh * 1.25)
-                w_adjusted = int(ow * 1.10)
+                h_adjusted = int(oh * AI_FACE_FLAGS.FACE_HEIGHT_ADJUST)
+                w_adjusted = int(ow * AI_FACE_FLAGS.FACE_WIDTH_ADJUST)
                 
                 xmin = max(0, int(bbox.origin_x * sx) - shift_left)
                 ymin = max(0, int(bbox.origin_y * sy) - shift_up)

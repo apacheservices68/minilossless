@@ -3,6 +3,7 @@ import math
 
 from app.core.ffmpeg_resolver import get_ffmpeg_path, get_ffprobe_path
 from app.core.constants import VIDEO_CODECS, HW_ACCELS, FFMPEG_COMMANDS, FFMPEG_FLAGS, PIXEL_FORMATS
+from app.core.helpers import my_round
 
 # FFmpeg Configuration and command builder helper functions
 
@@ -66,6 +67,7 @@ FFMPEG_CONFIGS = {
     "BUFFSIZE_VAL" : "12M",
     "DEFAULT_TIMESCALE" : "60000",
     "PROFILE_VAL" : "high",
+    "FPS_MODE_VAL" : "cfr",
 }
 
 def get_ffmpeg_cut_cmd(input_path: str, output_path: str, start_time: str, end_time: str, tracks: list = None, audio_codec: str = "copy") -> list[str]:
@@ -196,7 +198,9 @@ def get_ffmpeg_pipe_cmd(
         "-filter_complex", "[0:v][1:v]overlay=0:0[outv]",
         FFMPEG_COMMANDS.MAP, "[outv]",
         FFMPEG_COMMANDS.MAP, "2:a?",
+        FFMPEG_COMMANDS.AUDIO_CODEC, FFMPEG_FLAGS.COPY,
         FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
+        FFMPEG_FLAGS.FPS_MODE, FFMPEG_CONFIGS["FPS_MODE_VAL"]
     ]
     
     # Optional parameters can be added to the dictionary to support bitrate, QP, gop size
@@ -291,7 +295,7 @@ def get_ffmpeg_crop_cmd(is_gpu = True, bitrate: str = None, filter_str: str = No
     # timescale
     my_timescale = timescale if timescale is not None else FFMPEG_CONFIGS["DEFAULT_TIMESCALE"]
     
-    fps_rounded = math.ceil(float(Fraction(fps)))
+    fps_rounded = my_round(float(Fraction(fps)))
 
     # Sửa lại thành:
     filter = filter_str if filter_str is not None else "crop={w}:{h}:{x}:{y}"

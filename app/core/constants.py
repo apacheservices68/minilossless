@@ -110,6 +110,7 @@ class FFMPEG_FLAGS:
     MOVFLAGS = "-movflags"
     DEFAULT_MODE = "-default_mode"
     IGNORE_UNKNOWN = "-ignore_unknown"
+    FPS_MODE = "-fps_mode"
 
 class PIXEL_FORMATS:
     YUV420P = "yuv420p"
@@ -121,3 +122,9 @@ class FFPROBE_FLAGS:
     SHOW_PACKETS = "-show_packets"
     SHOW_ENTRIES = "-show_entries"
     OF_JSON = "-of"
+
+class AI_FACE_FLAGS:
+    FACE_SHIFT_LEFT = 0.4 # Updated from 0.05 to 0.4 for better alignment with face detection bounding boxes
+    FACE_SHIFT_UP = 0.20
+    FACE_HEIGHT_ADJUST = 1.25
+    FACE_WIDTH_ADJUST = 1.7 # Updated from 1.1 to 1.7 for better coverage of the face region

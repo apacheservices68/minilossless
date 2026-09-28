@@ -3,7 +3,7 @@ import math
 import traceback
 
 from app.core.ffmpeg_config import get_ffmpeg_crop_cmd
-from app.core.helpers import calculate_cropped_bitrate, check_cuda_support, get_media_info, get_origin_tbn_fps
+from app.core.helpers import calculate_cropped_bitrate, check_cuda_support, get_media_info, get_origin_tbn_fps, my_round
 
 class UtilService:
     def __init__(self):
@@ -96,14 +96,14 @@ class UtilService:
                     orig_bitrate = int(video_stream["bit_rate"])
 
                 
-                # if orig_bitrate > 0:
-                #     # Dùng helper tính bitrate theo tỉ lệ diện tích pixel mới / cũ
-                #     bitrate_bps = calculate_cropped_bitrate(orig_w, orig_h, width, height, orig_bitrate)
-                #     print(f"Original Width: {orig_w}, Original Height: {orig_h}, Resize Bitrate: {bitrate_bps} bps")
-                #     clean_val = str(bitrate_bps).rstrip('kK')
-                #     bitrate_str = f"{int(float(clean_val))}k"
-                tmp_btr = math.ceil(orig_bitrate/2)
-                bitrate_str = f"{int(tmp_btr / 1000)}k"
+                if orig_bitrate > 0:
+                    # Dùng helper tính bitrate theo tỉ lệ diện tích pixel mới / cũ
+                    bitrate_bps = calculate_cropped_bitrate(orig_w, orig_h, width, height, orig_bitrate)
+                    print(f"Original Width: {orig_w}, Original Height: {orig_h}, Resize Bitrate: {bitrate_bps} bps")
+                    clean_val = str(bitrate_bps).rstrip('kK')
+                    bitrate_str = f"{int(float(clean_val))}k"
+                # tmp_btr = my_round(orig_bitrate/2)
+                # bitrate_str = f"{int(tmp_btr / 1000)}k"
 
                 # timebase 
                 fps_tbn = get_origin_tbn_fps(input_path)

@@ -9,7 +9,7 @@ import ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
 from app.core.constants import BASE_DIR
-from app.core.helpers import get_origin_bitrate
+from app.core.helpers import get_origin_bitrate, my_round
 from app.core.watermark_constants import WATERMARK_POSITIONS
 from app.core.ffmpeg_resolver import get_ffprobe_path, get_ffmpeg_path
 from app.core.ffmpeg_config import (
@@ -298,7 +298,7 @@ def process_video_ai(
         fps = 30.0
     if total_frames <= 0:
         total_frames = 1
-    fps_rounded = math.ceil(fps)
+    fps_rounded = my_round(fps)
         
     process = None
     # 1. Tạo file log tạm chuẩn Cross-Platform (Windows & Linux)

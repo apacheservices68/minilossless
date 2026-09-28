@@ -146,14 +146,14 @@ def encode_subpart(input_path: str, start_sec: float, duration_sec: float, outpu
         FFMPEG_FLAGS.YES,
         FFMPEG_FLAGS.START_TIME, f"{start_sec:.5f}",
         "-i", input_path,
-        FFMPEG_FLAGS.START_TIME, "0",
+        # FFMPEG_FLAGS.START_TIME, "0",
         FFMPEG_FLAGS.DURATION, f"{duration_sec:.5f}",
         FFMPEG_FLAGS.MAP, "0:v:0",
         FFMPEG_FLAGS.MAP, "0:a:0?",
         FFMPEG_COMMANDS.VIDEO_CODEC, VIDEO_CODECS.CPU_H264,
         FFMPEG_COMMANDS.VIDEO_BITRATE, bitrate_str,
         FFMPEG_COMMANDS.AUDIO_CODEC, VIDEO_CODECS.COPY,
-        FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
+        # FFMPEG_COMMANDS.PROFILE, FFMPEG_CONFIGS["PROFILE_VAL"],
         FFMPEG_FLAGS.IGNORE_UNKNOWN
     ]
 
